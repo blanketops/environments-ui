@@ -127,15 +127,20 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete }) => {
         {tab === 'conditions' && (
           item.conditions.length === 0
             ? <div className="empty-state">no conditions reported</div>
-            : item.conditions.map((c, i) => (
+            : item.conditions.map((c, i) => {
+              const falseDotCls = phaseLower === 'failed'  ? 'dot-failed'
+                                : phaseLower === 'running' ? 'dot-running'
+                                : phaseLower === 'pending' ? 'dot-pending'
+                                : 'dot-failed'
+              return (
               <div key={i} className="cond-row">
-                <div className={`cond-dot ${c.status === 'True' ? 'dot-ready' : 'dot-failed'}`} />
+                <div className={`cond-dot ${c.status === 'True' ? 'dot-ready' : falseDotCls}`} />
                 <div>
                   <div className="cond-type">{c.type}</div>
                   <div className="cond-msg">{c.message}</div>
                 </div>
               </div>
-            ))
+              )})
         )}
       </div>
 

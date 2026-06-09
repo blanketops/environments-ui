@@ -42,7 +42,7 @@ export const ResourceList: FC<Props> = ({
   title, items, loading, error, createPath, selected, onSelect, getSubItems,
 }) => {
   if (loading) return <div className="empty-state">loading {title}s…</div>
-  if (error)   return <div className="empty-state" style={{ color: 'var(--red)' }}>Error: {error}</div>
+  if (error)   return <div className="empty-state list-error">Error: {error}</div>
 
   const phaseLower = (phase: string) => phase.toLowerCase()
 
@@ -50,7 +50,7 @@ export const ResourceList: FC<Props> = ({
     <div className="card">
       <div className="card-hdr">
         <span className="card-title">{title}s</span>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div className="card-hdr-actions">
           <span className="total-badge">{items.length} total</span>
           {createPath && (
             <Link to={createPath} className="btn btn-primary">
@@ -63,7 +63,7 @@ export const ResourceList: FC<Props> = ({
       {items.length === 0 ? (
         <div className="empty-state">
           no {title} CRs yet
-          {createPath && <> — <Link to={createPath} style={{ color: 'var(--blue)' }}>create one</Link></>}
+          {createPath && <> — <Link to={createPath} className="list-create-link">create one</Link></>}
         </div>
       ) : (
         items.map(item => {
@@ -87,7 +87,7 @@ export const ResourceList: FC<Props> = ({
               </div>
               <span className="row-age">{computeAge(item)}</span>
               <span className={`badge badge-${phase}`}>{phase}</span>
-              <i className="ti ti-chevron-right" style={{ color: 'var(--text3)', fontSize: 13 }} />
+              <i className="ti ti-chevron-right row-chevron" />
             </div>
           )
         })

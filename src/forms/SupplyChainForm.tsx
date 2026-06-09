@@ -47,6 +47,7 @@ export const SupplyChainForm: FC = () => {
           <span className="card-title">new supply chain</span>
           <span className="kind-badge">SupplyChain</span>
         </div>
+        <div className="form-split">
         <form onSubmit={handleSubmit} className="form-body">
           <Field label="name" required>
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="my-supply-chain" required />
@@ -71,16 +72,15 @@ export const SupplyChainForm: FC = () => {
           <ToggleField label="steps.attest"     value={attest}     onChange={setAttest} />
 
           {error && <p className="form-submit-error">{error}</p>}
-
-          <YamlPreview value={{ apiVersion: 'supplychain.blanketops.dev/v1alpha1', kind: 'SupplyChain', metadata: { name, namespace }, spec }} />
-
           <div className="form-footer">
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'creating…' : 'create'}
-            </button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'creating…' : 'create'}</button>
             <button type="button" className="btn" onClick={() => nav('/supplychains')}>cancel</button>
           </div>
         </form>
+        <div className="form-yaml-panel">
+          <YamlPreview value={{ apiVersion: 'supplychain.blanketops.dev/v1alpha1', kind: 'SupplyChain', metadata: { name, namespace }, spec }} />
+        </div>
+        </div>
       </div>
     </div>
   )

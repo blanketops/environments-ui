@@ -47,6 +47,7 @@ export const BuildTriggerForm: FC = () => {
           <span className="card-title">new build trigger</span>
           <span className="kind-badge">BuildTrigger</span>
         </div>
+        <div className="form-split">
         <form onSubmit={handleSubmit} className="form-body">
           <div className="form-sec"><span className="form-sec-title">METADATA</span><div className="form-sec-line" /></div>
           <div className="form-row">
@@ -83,12 +84,15 @@ export const BuildTriggerForm: FC = () => {
             sub="Allow a new BuildRun before the previous one completes" />
 
           {error && <p className="form-submit-error">{error}</p>}
-          <YamlPreview value={{ apiVersion: 'environments.blanketops.dev/v1alpha1', kind: 'BuildTrigger', metadata: { name, namespace }, spec }} />
           <div className="form-footer">
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'creating…' : 'create'}</button>
             <button type="button" className="btn" onClick={() => nav('/buildtriggers')}>cancel</button>
           </div>
         </form>
+        <div className="form-yaml-panel">
+          <YamlPreview value={{ apiVersion: 'environments.blanketops.dev/v1alpha1', kind: 'BuildTrigger', metadata: { name, namespace }, spec }} />
+        </div>
+        </div>
       </div>
     </div>
   )

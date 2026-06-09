@@ -46,6 +46,7 @@ export const GitHubWebhookForm: FC = () => {
           <span className="card-title">new github webhook</span>
           <span className="kind-badge">GitHubWebhook</span>
         </div>
+        <div className="form-split">
         <form onSubmit={handleSubmit} className="form-body">
           <Field label="name" required>
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="my-webhook" required />
@@ -67,16 +68,15 @@ export const GitHubWebhookForm: FC = () => {
           </Field>
 
           {error && <p className="form-submit-error">{error}</p>}
-
-          <YamlPreview value={{ apiVersion: 'supplychain.blanketops.dev/v1alpha1', kind: 'GitHubWebhook', metadata: { name, namespace }, spec }} />
-
           <div className="form-footer">
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'creating…' : 'create'}
-            </button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'creating…' : 'create'}</button>
             <button type="button" className="btn" onClick={() => nav('/githubwebhooks')}>cancel</button>
           </div>
         </form>
+        <div className="form-yaml-panel">
+          <YamlPreview value={{ apiVersion: 'supplychain.blanketops.dev/v1alpha1', kind: 'GitHubWebhook', metadata: { name, namespace }, spec }} />
+        </div>
+        </div>
       </div>
     </div>
   )

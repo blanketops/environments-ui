@@ -43,6 +43,7 @@ export const DomainForm: FC = () => {
           <span className="card-title">new domain</span>
           <span className="kind-badge">Domain</span>
         </div>
+        <div className="form-split">
         <form onSubmit={handleSubmit} className="form-body">
           <div className="form-sec"><span className="form-sec-title">METADATA</span><div className="form-sec-line" /></div>
           <div className="form-row">
@@ -78,12 +79,15 @@ export const DomainForm: FC = () => {
           </div>
 
           {error && <p className="form-submit-error">{error}</p>}
-          <YamlPreview value={{ apiVersion: 'networking.environments.blanketops.dev/v1alpha1', kind: 'Domain', metadata: { name, namespace }, spec }} />
           <div className="form-footer">
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'creating…' : 'create'}</button>
             <button type="button" className="btn" onClick={() => nav('/domains')}>cancel</button>
           </div>
         </form>
+        <div className="form-yaml-panel">
+          <YamlPreview value={{ apiVersion: 'networking.environments.blanketops.dev/v1alpha1', kind: 'Domain', metadata: { name, namespace }, spec }} />
+        </div>
+        </div>
       </div>
     </div>
   )

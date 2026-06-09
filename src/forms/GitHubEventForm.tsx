@@ -48,6 +48,7 @@ export const GitHubEventForm: FC = () => {
           <span className="card-title">new github event</span>
           <span className="kind-badge">GitHubEvent</span>
         </div>
+        <div className="form-split">
         <form onSubmit={handleSubmit} className="form-body">
           <div className="form-sec"><span className="form-sec-title">METADATA</span><div className="form-sec-line" /></div>
           <div className="form-row">
@@ -81,12 +82,15 @@ export const GitHubEventForm: FC = () => {
           </Field>
 
           {error && <p className="form-submit-error">{error}</p>}
-          <YamlPreview value={{ apiVersion: 'events.blanketops.dev/v1alpha1', kind: 'GitHubEvent', metadata: { name, namespace }, spec }} />
           <div className="form-footer">
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'creating…' : 'create'}</button>
             <button type="button" className="btn" onClick={() => nav('/githubevents')}>cancel</button>
           </div>
         </form>
+        <div className="form-yaml-panel">
+          <YamlPreview value={{ apiVersion: 'events.blanketops.dev/v1alpha1', kind: 'GitHubEvent', metadata: { name, namespace }, spec }} />
+        </div>
+        </div>
       </div>
     </div>
   )

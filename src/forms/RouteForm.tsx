@@ -48,6 +48,7 @@ export const RouteForm: FC = () => {
           <span className="card-title">new route</span>
           <span className="kind-badge">Route</span>
         </div>
+        <div className="form-split">
         <form onSubmit={handleSubmit} className="form-body">
           <div className="form-sec"><span className="form-sec-title">METADATA</span><div className="form-sec-line" /></div>
           <div className="form-row">
@@ -90,12 +91,15 @@ export const RouteForm: FC = () => {
           </Field>
 
           {error && <p className="form-submit-error">{error}</p>}
-          <YamlPreview value={{ apiVersion: 'networking.environments.blanketops.dev/v1alpha1', kind: 'Route', metadata: { name, namespace }, spec }} />
           <div className="form-footer">
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'creating…' : 'create'}</button>
             <button type="button" className="btn" onClick={() => nav('/routes')}>cancel</button>
           </div>
         </form>
+        <div className="form-yaml-panel">
+          <YamlPreview value={{ apiVersion: 'networking.environments.blanketops.dev/v1alpha1', kind: 'Route', metadata: { name, namespace }, spec }} />
+        </div>
+        </div>
       </div>
     </div>
   )

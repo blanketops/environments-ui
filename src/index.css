@@ -242,6 +242,10 @@
   background: var(--text3);
 }
 
+.dot-unknown {
+  background: var(--text3);
+}
+
 .badge {
   font-size: 11px;
   padding: 2px 8px;
@@ -268,6 +272,12 @@
 }
 
 .badge-pending {
+  background: var(--bg3);
+  color: var(--text3);
+  border: 1px solid var(--border);
+}
+
+.badge-unknown {
   background: var(--bg3);
   color: var(--text3);
   border: 1px solid var(--border);
@@ -888,6 +898,21 @@
   color: var(--blue);
   border: 1px solid #1a3a6a;
   font-family: var(--mono);
+}
+
+.card-hdr-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.list-error { color: var(--red); }
+
+.list-create-link { color: var(--blue); }
+
+.row-chevron {
+  color: var(--text3);
+  font-size: 13px;
 }
 
 /* ── Forms ──────────────────────────────────────────────────────────── */

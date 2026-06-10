@@ -11,6 +11,11 @@ import {
   environmentsClient, buildsClient, routesClient, domainsClient,
   APIError, USE_MOCK,
 } from './client'
+import { resetMockStore } from '../store/mock'
+
+beforeEach(() => {
+  resetMockStore()
+})
 
 // ── Sanity ────────────────────────────────────────────────────────────────────
 
@@ -29,9 +34,12 @@ describe('list', () => {
     expect(res.total).toBe(res.items.length)
   })
 
-  it('returns correct kind on all 10 CR types', async () => {
-    const kinds = ['environments','builds','buildtriggers','packages','serviceunits',
-                   'deployments','gitrepositories','githubevents','routes','domains']
+  it('returns correct kind on all 13 CR types', async () => {
+    const kinds = [
+      'environments', 'builds', 'buildtriggers', 'packages', 'serviceunits',
+      'deployments', 'gitrepositories', 'githubevents', 'githubpayloads',
+      'routes', 'domains', 'supplychains', 'githubwebhooks',
+    ]
     for (const kind of kinds) {
       const res = await list(kind)
       expect(res.items.length).toBeGreaterThan(0)
@@ -49,9 +57,9 @@ describe('list', () => {
 // ── get ───────────────────────────────────────────────────────────────────────
 
 describe('getResource', () => {
-  it('returns a known environment', async () => {
-    const cr = await getResource('environments', 'blanketops-system', 'env-production')
-    expect(cr.name).toBe('env-production')
+  it('returns a known Ready environment', async () => {
+    const cr = await getResource('environments', 'blanketops-environments', 'environment-sample')
+    expect(cr.name).toBe('environment-sample')
     expect(cr.phase).toBe('Ready')
   })
 
@@ -67,6 +75,11 @@ describe('getResource', () => {
     expect(cr.phase).toBe('Failed')
     expect(cr.conditions[0].status).toBe('False')
   })
+
+  it('returns a Running environment', async () => {
+    const cr = await getResource('environments', 'blanketops-environments', 'dev-sandbox-001')
+    expect(cr.phase).toBe('Running')
+  })
 })
 
 // ── create ────────────────────────────────────────────────────────────────────
@@ -77,7 +90,7 @@ describe('create', () => {
       apiVersion: 'environments.blanketops.dev/v1alpha1',
       kind: 'Environment',
       metadata: { name: 'env-test-create', namespace: 'blanketops-system' },
-      spec: { environmentClass: 'lite' },
+      spec: { envType: 'dev' },
     }
     const cr = await create('environments', 'blanketops-system', body)
     expect(cr.name).toBe('env-test-create')
@@ -89,8 +102,8 @@ describe('create', () => {
   })
 
   it('throws 409 if resource already exists', async () => {
-    const body = { metadata: { name: 'env-production', namespace: 'blanketops-system' }, spec: {} }
-    const err = await create('environments', 'blanketops-system', body).catch(e => e)
+    const body = { metadata: { name: 'environment-sample', namespace: 'blanketops-environments' }, spec: {} }
+    const err = await create('environments', 'blanketops-environments', body).catch(e => e)
     expect(err).toBeInstanceOf(APIError)
     expect((err as APIError).status).toBe(409)
     expect((err as APIError).reason).toBe('AlreadyExists')
@@ -100,6 +113,16 @@ describe('create', () => {
     const err = await create('unknownkind', 'ns', {}).catch(e => e)
     expect(err).toBeInstanceOf(APIError)
     expect((err as APIError).status).toBe(400)
+  })
+
+  it('newly created resource starts in Pending phase', async () => {
+    const cr = await create('builds', 'blanketops-system', {
+      metadata: { name: 'build-new' },
+      spec: { strategy: { name: 'kaniko' } },
+    })
+    expect(cr.phase).toBe('Pending')
+    expect(cr.generation).toBe(1)
+    expect(cr.events[0].reason).toBe('Created')
   })
 })
 
@@ -111,11 +134,11 @@ describe('patchResource', () => {
     const prevGen = before.generation
 
     const patched = await patchResource('environments', 'blanketops-system', 'env-staging', {
-      spec: { environmentClass: 'enterprise' },
+      spec: { envType: 'staging', replicas: 3 },
     })
 
     expect(patched.generation).toBe(prevGen + 1)
-    expect((patched.spec as Record<string, unknown>).environmentClass).toBe('enterprise')
+    expect((patched.spec as Record<string, unknown>).replicas).toBe(3)
     expect(patched.conditions[0].reason).toBe('Patching')
   })
 
@@ -136,13 +159,20 @@ describe('patchResource', () => {
     expect((patched.spec as Record<string, unknown>).image).toBe(origImage)
     expect((patched.spec as Record<string, unknown>).contextPath).toBe('./new-context')
   })
+
+  it('merges labels from metadata', async () => {
+    const patched = await patchResource('environments', 'blanketops-environments', 'environment-sample', {
+      metadata: { labels: { 'team': 'platform' } },
+    })
+    expect(patched.labels?.['team']).toBe('platform')
+    expect(patched.labels?.['env']).toBe('dev') // original label preserved
+  })
 })
 
 // ── delete ────────────────────────────────────────────────────────────────────
 
 describe('deleteResource', () => {
   it('deletes a resource and removes it from the store', async () => {
-    // First create one to delete
     await create('packages', 'blanketops-system', {
       metadata: { name: 'pkg-to-delete', namespace: 'blanketops-system' },
       spec: { strategy: 'kustomize' },
@@ -158,6 +188,24 @@ describe('deleteResource', () => {
 
   it('throws 404 when deleting non-existent resource', async () => {
     const err = await deleteResource('builds', 'blanketops-system', 'build-phantom').catch(e => e)
+    expect(err).toBeInstanceOf(APIError)
+    expect((err as APIError).status).toBe(404)
+  })
+
+  it('patch then delete — resource is gone, second access returns 404', async () => {
+    // Covers the predicate concern: a patched resource can still be deleted cleanly,
+    // and any subsequent access (edit/read) correctly returns 404.
+    await patchResource('serviceunits', 'blanketops-system', 'su-api', { spec: { size: 3 } })
+    await deleteResource('serviceunits', 'blanketops-system', 'su-api')
+
+    const err = await getResource('serviceunits', 'blanketops-system', 'su-api').catch(e => e)
+    expect(err).toBeInstanceOf(APIError)
+    expect((err as APIError).status).toBe(404)
+  })
+
+  it('delete then patch — patch returns 404, not a stale update', async () => {
+    await deleteResource('builds', 'blanketops-system', 'build-api')
+    const err = await patchResource('builds', 'blanketops-system', 'build-api', { spec: {} }).catch(e => e)
     expect(err).toBeInstanceOf(APIError)
     expect((err as APIError).status).toBe(404)
   })
@@ -195,8 +243,8 @@ describe('getEvents', () => {
 
 describe('getDebug', () => {
   it('returns debug info with all required fields', async () => {
-    const info = await getDebug('environments', 'blanketops-system', 'env-production')
-    expect(info.name).toBe('env-production')
+    const info = await getDebug('environments', 'blanketops-environments', 'environment-sample')
+    expect(info.name).toBe('environment-sample')
     expect(info.kind).toBe('environments')
     expect(typeof info.queueDepth).toBe('number')
     expect(typeof info.lastReconcileDurationMs).toBe('number')
@@ -206,12 +254,12 @@ describe('getDebug', () => {
   })
 
   it('queueDepth is -1 for Ready resources', async () => {
-    const info = await getDebug('environments', 'blanketops-system', 'env-production')
+    const info = await getDebug('environments', 'blanketops-environments', 'environment-sample')
     expect(info.queueDepth).toBe(-1)
   })
 
   it('queueDepth is >= 0 for Pending resources', async () => {
-    const info = await getDebug('environments', 'blanketops-system', 'env-dev-neo')
+    const info = await getDebug('deployments', 'blanketops-system', 'deploy-staging')
     expect(info.queueDepth).toBeGreaterThanOrEqual(0)
   })
 
@@ -230,6 +278,11 @@ describe('getDebug', () => {
     const info = await getDebug('routes', 'blanketops-system', 'route-api-production')
     expect(info.dispatchRoute).toContain('routes')
     expect(info.dispatchRoute).toContain('Reconciler')
+  })
+
+  it('predicates.NotDeleting is false for Failed resources', async () => {
+    const info = await getDebug('builds', 'blanketops-system', 'build-gateway')
+    expect(info.predicates.NotDeleting).toBe(false)
   })
 })
 
@@ -256,7 +309,7 @@ describe('kindClient wrappers', () => {
   })
 
   it('domainsClient.patch() updates spec', async () => {
-    const patched = await domainsClient.patch('domain-internal', { spec: { mtls: true } })
+    const patched = await domainsClient.patch('domain-blanketops-dev', { spec: { mtls: true } })
     expect((patched.spec as Record<string, unknown>).mtls).toBe(true)
   })
 

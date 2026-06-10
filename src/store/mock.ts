@@ -415,3 +415,14 @@ export const MOCK_STORE: Record<string, CRStatus[]> = {
   supplychains:    mockSupplyChains,
   githubwebhooks:  mockGitHubWebhooks,
 }
+
+// Deep snapshot taken at module load — use resetMockStore() in beforeEach to
+// prevent test mutations from leaking across test cases.
+const INITIAL_SNAPSHOT: Record<string, CRStatus[]> =
+  Object.fromEntries(Object.entries(MOCK_STORE).map(([k, v]) => [k, JSON.parse(JSON.stringify(v))]))
+
+export function resetMockStore(): void {
+  for (const [kind, items] of Object.entries(INITIAL_SNAPSHOT)) {
+    MOCK_STORE[kind] = JSON.parse(JSON.stringify(items))
+  }
+}

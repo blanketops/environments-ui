@@ -32,7 +32,7 @@ function HealthCard({ kind, icon, label }: HealthKind) {
   if (loading) return (
     <div className="health-card">
       <div className="health-label"><i className={`ti ${icon}`} />{label}</div>
-      <div style={{ height: 28, background: 'var(--bg3)', borderRadius: 4, width: 60 }} />
+      <div className="health-skel" />
     </div>
   )
 
@@ -45,11 +45,19 @@ function HealthCard({ kind, icon, label }: HealthKind) {
           {running > 0 && <div className="hnum hnum-running"><div className="hnum-val">{running}</div><div className="hnum-lbl">running</div></div>}
           {failed  > 0 && <div className="hnum hnum-failed"> <div className="hnum-val">{failed}</div> <div className="hnum-lbl">failed</div></div>}
           {pending > 0 && <div className="hnum hnum-pending"><div className="hnum-val">{pending}</div><div className="hnum-lbl">pending</div></div>}
-          <div className="hnum hnum-total" style={{ marginLeft: 'auto' }}>
+          <div className="hnum hnum-total">
             <div className="hnum-val">{total}</div>
             <div className="hnum-lbl">total</div>
           </div>
         </div>
+        {total > 0 && (
+          <div className="health-bar">
+            {ready   > 0 && <div className="hb-seg hb-ready"   style={{ width: `${ready/total*100}%` }} />}
+            {running > 0 && <div className="hb-seg hb-running" style={{ width: `${running/total*100}%` }} />}
+            {failed  > 0 && <div className="hb-seg hb-failed"  style={{ width: `${failed/total*100}%` }} />}
+            {pending > 0 && <div className="hb-seg hb-pending" style={{ width: `${pending/total*100}%` }} />}
+          </div>
+        )}
       </div>
     </Link>
   )

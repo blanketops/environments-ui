@@ -41,8 +41,18 @@ function TagEl({ item }: { item: SubItem }) {
 export const ResourceList: FC<Props> = ({
   title, items, loading, error, createPath, selected, onSelect, getSubItems,
 }) => {
-  if (loading) return <div className="empty-state">loading {title}s…</div>
-  if (error)   return <div className="empty-state list-error">Error: {error}</div>
+  if (loading) return (
+    <div className="card">
+      <div className="card-hdr"><span className="card-title">{title}s</span></div>
+      <div className="loading-state"><div className="spinner-lg" />loading {title}s…</div>
+    </div>
+  )
+  if (error) return (
+    <div className="card">
+      <div className="card-hdr"><span className="card-title">{title}s</span></div>
+      <div className="loading-state list-error"><i className="ti ti-alert-circle" />Error: {error}</div>
+    </div>
+  )
 
   const phaseLower = (phase: string) => phase.toLowerCase()
 

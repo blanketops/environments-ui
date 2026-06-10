@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Layout } from './components/Layout'
+import { Home } from './pages/Home'
 import { Dashboard } from './pages/Dashboard'
 
 // Environments group
@@ -46,7 +47,8 @@ export default function App() {
     <BrowserRouter>
       <Layout>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/"          element={<Home />} />
+          <Route path="/dashboard" element={<Dashboard />} />
 
           {/* Environments */}
           <Route path="/environments"       element={<EnvironmentList />} />

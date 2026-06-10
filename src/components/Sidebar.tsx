@@ -7,7 +7,7 @@ interface Section { title: string; items: NavItem[] }
 const NAV: Section[] = [
   {
     title: 'PLATFORM', items: [
-      { label: 'dashboard', to: '/', icon: 'ti-layout-dashboard' },
+      { label: 'home', to: '/', icon: 'ti-home' },
     ],
   },
   {

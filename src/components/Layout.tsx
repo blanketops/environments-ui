@@ -5,7 +5,8 @@ import { Sidebar } from './Sidebar'
 interface RouteMeta { title: string; badge?: string }
 
 const ROUTE_META: Record<string, RouteMeta> = {
-  '/':                { title: 'dashboard' },
+  '/':           { title: 'home' },
+  '/dashboard':  { title: 'dashboard' },
   '/environments':    { title: 'environment',    badge: 'Environment' },
   '/builds':          { title: 'build',          badge: 'Build' },
   '/buildtriggers':   { title: 'build trigger',  badge: 'BuildTrigger' },
@@ -27,7 +28,7 @@ export const Layout: FC<Props> = ({ children }) => {
   const location = useLocation()
   const base = '/' + location.pathname.split('/')[1]
   const meta = ROUTE_META[base] ?? { title: 'dashboard' }
-  const isDashboard = base === '/'
+  const isDashboard = base === '/dashboard'
 
   return (
     <div className="app">

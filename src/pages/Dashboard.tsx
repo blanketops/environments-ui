@@ -10,14 +10,12 @@ interface HealthKind { kind: Kind; icon: string; label: string }
 const HEALTH_KINDS: HealthKind[] = [
   { kind: 'environments',    icon: 'ti-box',           label: 'environments' },
   { kind: 'builds',          icon: 'ti-package',       label: 'builds' },
-  { kind: 'buildtriggers',   icon: 'ti-player-play',   label: 'build triggers' },
   { kind: 'packages',        icon: 'ti-box-multiple',  label: 'packages' },
   { kind: 'serviceunits',    icon: 'ti-server',        label: 'service units' },
   { kind: 'deployments',     icon: 'ti-rocket',        label: 'deployments' },
   { kind: 'routes',          icon: 'ti-route',         label: 'routes' },
   { kind: 'domains',         icon: 'ti-world',         label: 'domains' },
   { kind: 'supplychains',    icon: 'ti-shield-check',  label: 'supply chains' },
-  { kind: 'githubpayloads',  icon: 'ti-file-code',     label: 'github payloads' },
 ]
 
 function HealthCard({ kind, icon, label }: HealthKind) {

@@ -2,6 +2,7 @@ import type { FC, ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { ConnectivityPill } from './ConnectivityPill'
+import { ConnectivityStatus } from './ConnectivityStatus'
 
 interface RouteMeta { title: string; badge?: string }
 
@@ -50,6 +51,7 @@ export const Layout: FC<Props> = ({ children }) => {
             )}
           </div>
         </div>
+        <ConnectivityStatus />
         <div className="content">{children}</div>
       </div>
     </div>

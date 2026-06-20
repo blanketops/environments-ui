@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 
 	environmentsv1alpha1 "github.com/ntlaletsi70/blanketops-environments-api/api/environments/v1alpha1"
 	eventsv1alpha1 "github.com/ntlaletsi70/blanketops-environments-api/api/events/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -52,10 +54,46 @@ func main() {
 	mux.HandleFunc("GET  /api/v1/{kind}", handleList(k8s))
 	mux.HandleFunc("POST /api/v1/{kind}", handleCreate(k8s))
 
-	slog.Info("blanketops server", "addr", ":"+port, "store", "kubernetes")
+	mux.HandleFunc("GET /health", handleHealth(k8s))
+
+	slog.Info("blanketops environments front server", "addr", ":"+port, "store", "kubernetes")
 	if err := http.ListenAndServe(":"+port, cors(mux)); err != nil {
 		slog.Error("server error", "err", err)
 		os.Exit(1)
+	}
+}
+
+// And this function:
+func handleHealth(k8s client.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if k8s == nil {
+			writeJSON(w, 503, map[string]any{
+				"status":    "unavailable",
+				"reason":    "Kubernetes client not initialized",
+				"connected": false,
+			})
+			return
+		}
+
+		// Lightweight check: list namespaces (or any cheap API call)
+		var nsList corev1.NamespaceList
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+
+		if err := k8s.List(ctx, &nsList, client.Limit(1)); err != nil {
+			writeJSON(w, 503, map[string]any{
+				"status":    "unavailable",
+				"reason":    err.Error(),
+				"connected": false,
+			})
+			return
+		}
+
+		writeJSON(w, 200, map[string]any{
+			"status":    "ok",
+			"connected": true,
+			"store":     "kubernetes",
+		})
 	}
 }
 

@@ -6,40 +6,72 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
-	"github.com/blanketops/environments-server/internal/store"
+	environmentsv1alpha1 "github.com/ntlaletsi70/blanketops-environments-api/api/environments/v1alpha1"
+	eventsv1alpha1 "github.com/ntlaletsi70/blanketops-environments-api/api/events/v1alpha1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+
 	"github.com/blanketops/environments-server/internal/types"
 )
-
-var db = store.NewSeeded()
 
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "8082"
 	}
 
+	// ── Scheme ─────────────────────────────────────────────────────────
+	scheme := runtime.NewScheme()
+	_ = environmentsv1alpha1.AddToScheme(scheme)
+	_ = eventsv1alpha1.AddToScheme(scheme)
+
+	// ── K8s client ─────────────────────────────────────────────────────
+	k8s, err := newK8sClient(scheme)
+	if err != nil {
+		slog.Error("k8s client required", "err", err)
+		os.Exit(1)
+	}
+
+	// ── Router ─────────────────────────────────────────────────────────
 	mux := http.NewServeMux()
 
-	// Sub-resource routes registered before the base resource catch-all
-	// (Go 1.22 ServeMux: more-specific patterns win, but explicit is clearer).
-	mux.HandleFunc("GET /api/v1/{kind}/{ns}/{name}/events", handleEvents)
-	mux.HandleFunc("GET /api/v1/{kind}/{ns}/{name}/debug",  handleDebug)
+	mux.HandleFunc("GET /api/v1/{kind}/{ns}/{name}/events", handleEvents(k8s))
+	mux.HandleFunc("GET /api/v1/{kind}/{ns}/{name}/debug", handleDebug(k8s))
 
-	// Resource routes
-	mux.HandleFunc("GET    /api/v1/{kind}/{ns}/{name}", handleGet)
-	mux.HandleFunc("PATCH  /api/v1/{kind}/{ns}/{name}", handlePatch)
-	mux.HandleFunc("DELETE /api/v1/{kind}/{ns}/{name}", handleDelete)
+	mux.HandleFunc("GET    /api/v1/{kind}/{ns}/{name}", handleGet(k8s))
+	mux.HandleFunc("PATCH  /api/v1/{kind}/{ns}/{name}", handlePatch(k8s))
+	mux.HandleFunc("DELETE /api/v1/{kind}/{ns}/{name}", handleDelete(k8s))
 
-	// Collection routes
-	mux.HandleFunc("GET  /api/v1/{kind}", handleList)
-	mux.HandleFunc("POST /api/v1/{kind}", handleCreate)
+	mux.HandleFunc("GET  /api/v1/{kind}", handleList(k8s))
+	mux.HandleFunc("POST /api/v1/{kind}", handleCreate(k8s))
 
-	slog.Info("blanketops stub server", "addr", ":"+port)
+	slog.Info("blanketops server", "addr", ":"+port, "store", "kubernetes")
 	if err := http.ListenAndServe(":"+port, cors(mux)); err != nil {
 		slog.Error("server error", "err", err)
 		os.Exit(1)
 	}
+}
+
+// newK8sClient tries in-cluster config first, then local kubeconfig.
+func newK8sClient(scheme *runtime.Scheme) (client.Client, error) {
+	cfg, err := config.GetConfig()
+	if err != nil {
+		cfg, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+			clientcmd.NewDefaultClientConfigLoadingRules(),
+			&clientcmd.ConfigOverrides{},
+		).ClientConfig()
+		if err != nil {
+			return nil, fmt.Errorf("no kubeconfig: %w", err)
+		}
+	}
+	return client.New(cfg, client.Options{Scheme: scheme})
 }
 
 // ── Middleware ────────────────────────────────────────────────────────────
@@ -67,17 +99,8 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	}
 }
 
-type storeErr interface {
-	HTTPStatus() int
-	HTTPReason() string
-}
-
-func writeErr(w http.ResponseWriter, err error) {
-	if se, ok := err.(storeErr); ok {
-		writeJSON(w, se.HTTPStatus(), types.APIError{Message: err.Error(), Reason: se.HTTPReason(), Code: se.HTTPStatus()})
-		return
-	}
-	writeJSON(w, 500, types.APIError{Message: err.Error(), Reason: "InternalServerError", Code: 500})
+func writeErr(w http.ResponseWriter, status int, msg, reason string) {
+	writeJSON(w, status, types.APIError{Message: msg, Reason: reason, Code: status})
 }
 
 func decode[T any](r *http.Request) (T, error) {
@@ -88,91 +111,383 @@ func decode[T any](r *http.Request) (T, error) {
 	return v, nil
 }
 
+// ── Kind → GVK mapping ───────────────────────────────────────────────────
+
+func kindToGVK(kind string) (schema.GroupVersionKind, bool) {
+	switch kind {
+	case "builds":
+		return environmentsv1alpha1.GroupVersion.WithKind("Build"), true
+	case "githubevents":
+		return eventsv1alpha1.GroupVersion.WithKind("GitHubEvent"), true
+	// Add more as you wire them up...
+	default:
+		return schema.GroupVersionKind{}, false
+	}
+}
+
+// pluralize converts "builds" → "Build" for the CR kind field
+func singularKind(kind string) string {
+	switch kind {
+	case "builds":
+		return "Build"
+	case "githubevents":
+		return "GitHubEvent"
+	default:
+		return strings.TrimSuffix(strings.Title(kind), "s")
+	}
+}
+
 // ── Handlers ──────────────────────────────────────────────────────────────
 
-func handleList(w http.ResponseWriter, r *http.Request) {
-	kind := r.PathValue("kind")
-	ns   := r.URL.Query().Get("namespace")
-	items, err := db.List(kind, ns)
-	if err != nil {
-		writeErr(w, err)
-		return
+func handleList(k8s client.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		kind := r.PathValue("kind")
+		ns := r.URL.Query().Get("namespace")
+
+		gvk, ok := kindToGVK(kind)
+		if !ok {
+			writeErr(w, 400, fmt.Sprintf("unknown kind: %s", kind), "BadRequest")
+			return
+		}
+
+		// Use the typed list for the kind
+		switch gvk.Kind {
+		case "Build":
+			var list environmentsv1alpha1.BuildList
+			opts := []client.ListOption{}
+			if ns != "" {
+				opts = append(opts, client.InNamespace(ns))
+			}
+			if err := k8s.List(r.Context(), &list, opts...); err != nil {
+				writeErr(w, 500, err.Error(), "InternalServerError")
+				return
+			}
+			items := make([]types.CRStatus, len(list.Items))
+			for i, b := range list.Items {
+				items[i] = buildToStatus(&b)
+			}
+			writeJSON(w, 200, types.ListResponse{Items: items, Total: len(items)})
+
+		case "GitHubEvent":
+			var list eventsv1alpha1.GitHubEventList
+			opts := []client.ListOption{}
+			if ns != "" {
+				opts = append(opts, client.InNamespace(ns))
+			}
+			if err := k8s.List(r.Context(), &list, opts...); err != nil {
+				writeErr(w, 500, err.Error(), "InternalServerError")
+				return
+			}
+			items := make([]types.CRStatus, len(list.Items))
+			for i, e := range list.Items {
+				items[i] = githubEventToStatus(&e)
+			}
+			writeJSON(w, 200, types.ListResponse{Items: items, Total: len(items)})
+
+		default:
+			writeErr(w, 400, fmt.Sprintf("list not implemented for kind: %s", kind), "BadRequest")
+		}
 	}
-	if items == nil {
-		items = []types.CRStatus{}
-	}
-	writeJSON(w, 200, types.ListResponse{Items: items, ResourceVersion: "stub-rv", Total: len(items)})
 }
 
-func handleCreate(w http.ResponseWriter, r *http.Request) {
-	kind := r.PathValue("kind")
-	ns   := r.URL.Query().Get("namespace")
-	if ns == "" {
-		ns = "blanketops-system"
+func handleGet(k8s client.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		kind := r.PathValue("kind")
+		ns := r.PathValue("ns")
+		name := r.PathValue("name")
+
+		gvk, ok := kindToGVK(kind)
+		if !ok {
+			writeErr(w, 400, fmt.Sprintf("unknown kind: %s", kind), "BadRequest")
+			return
+		}
+
+		switch gvk.Kind {
+		case "Build":
+			var build environmentsv1alpha1.Build
+			if err := k8s.Get(r.Context(), client.ObjectKey{Namespace: ns, Name: name}, &build); err != nil {
+				writeErr(w, 404, err.Error(), "NotFound")
+				return
+			}
+			writeJSON(w, 200, buildToStatus(&build))
+
+		case "GitHubEvent":
+			var event eventsv1alpha1.GitHubEvent
+			if err := k8s.Get(r.Context(), client.ObjectKey{Namespace: ns, Name: name}, &event); err != nil {
+				writeErr(w, 404, err.Error(), "NotFound")
+				return
+			}
+			writeJSON(w, 200, githubEventToStatus(&event))
+
+		default:
+			writeErr(w, 400, fmt.Sprintf("get not implemented for kind: %s", kind), "BadRequest")
+		}
 	}
-	body, err := decode[types.CreateBody](r)
-	if err != nil {
-		writeJSON(w, 400, types.APIError{Message: err.Error(), Reason: "BadRequest", Code: 400})
-		return
-	}
-	cr, err := db.Create(kind, ns, body)
-	if err != nil {
-		writeErr(w, err)
-		return
-	}
-	writeJSON(w, 201, cr)
 }
 
-func handleGet(w http.ResponseWriter, r *http.Request) {
-	cr, err := db.Get(r.PathValue("kind"), r.PathValue("ns"), r.PathValue("name"))
-	if err != nil {
-		writeErr(w, err)
-		return
+func handleCreate(k8s client.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		kind := r.PathValue("kind")
+		ns := r.URL.Query().Get("namespace")
+		if ns == "" {
+			ns = "default"
+		}
+
+		body, err := decode[types.CreateBody](r)
+		if err != nil {
+			writeErr(w, 400, err.Error(), "BadRequest")
+			return
+		}
+
+		name := body.Metadata.Name
+		if name == "" {
+			name = fmt.Sprintf("%s-%d", kind, time.Now().UnixMilli())
+		}
+
+		switch kind {
+		case "builds":
+			build := &environmentsv1alpha1.Build{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        name,
+					Namespace:   ns,
+					Labels:      body.Metadata.Labels,
+					Annotations: body.Metadata.Annotations,
+				},
+				Spec: environmentsv1alpha1.BuildSpec{
+					Contract: runtime.RawExtension{Raw: body.Spec},
+				},
+			}
+			if err := k8s.Create(r.Context(), build); err != nil {
+				writeErr(w, 500, err.Error(), "InternalServerError")
+				return
+			}
+			writeJSON(w, 201, buildToStatus(build))
+
+		case "githubevents":
+			event := &eventsv1alpha1.GitHubEvent{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        name,
+					Namespace:   ns,
+					Labels:      body.Metadata.Labels,
+					Annotations: body.Metadata.Annotations,
+				},
+				Spec: eventsv1alpha1.GitHubEventSpec{
+					Contract: runtime.RawExtension{Raw: body.Spec},
+				},
+			}
+			if err := k8s.Create(r.Context(), event); err != nil {
+				writeErr(w, 500, err.Error(), "InternalServerError")
+				return
+			}
+			writeJSON(w, 201, githubEventToStatus(event))
+
+		default:
+			writeErr(w, 400, fmt.Sprintf("create not implemented for kind: %s", kind), "BadRequest")
+		}
 	}
-	writeJSON(w, 200, cr)
 }
 
-func handlePatch(w http.ResponseWriter, r *http.Request) {
-	body, err := decode[types.PatchBody](r)
-	if err != nil {
-		writeJSON(w, 400, types.APIError{Message: err.Error(), Reason: "BadRequest", Code: 400})
-		return
+func handlePatch(k8s client.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		kind := r.PathValue("kind")
+		ns := r.PathValue("ns")
+		name := r.PathValue("name")
+
+		body, err := decode[types.PatchBody](r)
+		if err != nil {
+			writeErr(w, 400, err.Error(), "BadRequest")
+			return
+		}
+
+		gvk, ok := kindToGVK(kind)
+		if !ok {
+			writeErr(w, 400, fmt.Sprintf("unknown kind: %s", kind), "BadRequest")
+			return
+		}
+
+		switch gvk.Kind {
+		case "Build":
+			var build environmentsv1alpha1.Build
+			if err := k8s.Get(r.Context(), client.ObjectKey{Namespace: ns, Name: name}, &build); err != nil {
+				writeErr(w, 404, err.Error(), "NotFound")
+				return
+			}
+			original := build.DeepCopy()
+			if body.Spec != nil {
+				build.Spec.Contract = runtime.RawExtension{Raw: body.Spec}
+			}
+			if body.Metadata != nil {
+				mergeMeta(&build.ObjectMeta, body.Metadata)
+			}
+			if err := k8s.Patch(r.Context(), &build, client.MergeFrom(original)); err != nil {
+				writeErr(w, 500, err.Error(), "InternalServerError")
+				return
+			}
+			writeJSON(w, 200, buildToStatus(&build))
+
+		case "GitHubEvent":
+			var event eventsv1alpha1.GitHubEvent
+			if err := k8s.Get(r.Context(), client.ObjectKey{Namespace: ns, Name: name}, &event); err != nil {
+				writeErr(w, 404, err.Error(), "NotFound")
+				return
+			}
+			original := event.DeepCopy()
+			if body.Spec != nil {
+				event.Spec.Contract = runtime.RawExtension{Raw: body.Spec}
+			}
+			if body.Metadata != nil {
+				mergeMeta(&event.ObjectMeta, body.Metadata)
+			}
+			if err := k8s.Patch(r.Context(), &event, client.MergeFrom(original)); err != nil {
+				writeErr(w, 500, err.Error(), "InternalServerError")
+				return
+			}
+			writeJSON(w, 200, githubEventToStatus(&event))
+
+		default:
+			writeErr(w, 400, fmt.Sprintf("patch not implemented for kind: %s", kind), "BadRequest")
+		}
 	}
-	cr, err := db.Patch(r.PathValue("kind"), r.PathValue("ns"), r.PathValue("name"), body)
-	if err != nil {
-		writeErr(w, err)
-		return
-	}
-	writeJSON(w, 200, cr)
 }
 
-func handleDelete(w http.ResponseWriter, r *http.Request) {
-	resp, err := db.Delete(r.PathValue("kind"), r.PathValue("ns"), r.PathValue("name"))
-	if err != nil {
-		writeErr(w, err)
-		return
+func handleDelete(k8s client.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		kind := r.PathValue("kind")
+		ns := r.PathValue("ns")
+		name := r.PathValue("name")
+
+		gvk, ok := kindToGVK(kind)
+		if !ok {
+			writeErr(w, 400, fmt.Sprintf("unknown kind: %s", kind), "BadRequest")
+			return
+		}
+
+		switch gvk.Kind {
+		case "Build":
+			build := &environmentsv1alpha1.Build{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+			}
+			if err := k8s.Delete(r.Context(), build); err != nil {
+				writeErr(w, 500, err.Error(), "InternalServerError")
+				return
+			}
+			writeJSON(w, 200, types.DeleteResponse{Name: name, Namespace: ns, Kind: kind, Deleted: true})
+
+		case "GitHubEvent":
+			event := &eventsv1alpha1.GitHubEvent{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
+			}
+			if err := k8s.Delete(r.Context(), event); err != nil {
+				writeErr(w, 500, err.Error(), "InternalServerError")
+				return
+			}
+			writeJSON(w, 200, types.DeleteResponse{Name: name, Namespace: ns, Kind: kind, Deleted: true})
+
+		default:
+			writeErr(w, 400, fmt.Sprintf("delete not implemented for kind: %s", kind), "BadRequest")
+		}
 	}
-	writeJSON(w, 200, resp)
 }
 
-func handleEvents(w http.ResponseWriter, r *http.Request) {
-	cr, err := db.Get(r.PathValue("kind"), r.PathValue("ns"), r.PathValue("name"))
-	if err != nil {
-		writeErr(w, err)
-		return
+func handleEvents(k8s client.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Events are in the CR status — read the CR and return its events
+		// For now, return empty (controller emits real K8s events separately)
+		writeJSON(w, 200, []types.CREvent{})
 	}
-	events := cr.Events
-	if events == nil {
-		events = []types.CREvent{}
-	}
-	writeJSON(w, 200, events)
 }
 
-func handleDebug(w http.ResponseWriter, r *http.Request) {
-	cr, err := db.Get(r.PathValue("kind"), r.PathValue("ns"), r.PathValue("name"))
-	if err != nil {
-		writeErr(w, err)
-		return
+func handleDebug(k8s client.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Debug is synthetic — could query controller metrics in future
+		handleGet(k8s)(w, r)
+		// Simplified: return a stub debug info
+		writeJSON(w, 200, types.DebugInfo{
+			Name:       r.PathValue("name"),
+			Namespace:  r.PathValue("ns"),
+			Kind:       r.PathValue("kind"),
+			QueueDepth: 0,
+		})
 	}
-	writeJSON(w, 200, store.BuildDebugInfo(cr))
+}
+
+// ── Status converters ─────────────────────────────────────────────────────
+
+func buildToStatus(b *environmentsv1alpha1.Build) types.CRStatus {
+	conds := make([]types.Condition, len(b.Status.Conditions))
+	for i, c := range b.Status.Conditions {
+		conds[i] = types.Condition{
+			Type:               c.Type,
+			Status:             string(c.Status),
+			Reason:             c.Reason,
+			Message:            c.Message,
+			LastTransitionTime: c.LastTransitionTime.Format(time.RFC3339),
+		}
+	}
+	return types.CRStatus{
+		Name:        b.Name,
+		Namespace:   b.Namespace,
+		Kind:        "Build",
+		Phase:       inferPhase(conds),
+		Generation:  b.Generation,
+		Labels:      b.Labels,
+		Annotations: b.Annotations,
+		Conditions:  conds,
+		Spec:        b.Spec.Contract.Raw,
+	}
+}
+
+func githubEventToStatus(e *eventsv1alpha1.GitHubEvent) types.CRStatus {
+	conds := make([]types.Condition, len(e.Status.Conditions))
+	for i, c := range e.Status.Conditions {
+		conds[i] = types.Condition{
+			Type:               c.Type,
+			Status:             string(c.Status),
+			Reason:             c.Reason,
+			Message:            c.Message,
+			LastTransitionTime: c.LastTransitionTime.Format(time.RFC3339),
+		}
+	}
+	return types.CRStatus{
+		Name:        e.Name,
+		Namespace:   e.Namespace,
+		Kind:        "GitHubEvent",
+		Phase:       inferPhase(conds),
+		Generation:  e.Generation,
+		Labels:      e.Labels,
+		Annotations: e.Annotations,
+		Conditions:  conds,
+		Spec:        e.Spec.Contract.Raw,
+	}
+}
+
+func inferPhase(conds []types.Condition) types.Phase {
+	for _, c := range conds {
+		if c.Type == "Ready" {
+			if c.Status == "True" {
+				return types.PhaseReady
+			}
+			return types.PhasePending
+		}
+	}
+	return types.PhaseUnknown
+}
+
+func mergeMeta(meta *metav1.ObjectMeta, patch *types.PatchMetadata) {
+	if patch.Labels != nil {
+		if meta.Labels == nil {
+			meta.Labels = make(map[string]string)
+		}
+		for k, v := range patch.Labels {
+			meta.Labels[k] = v
+		}
+	}
+	if patch.Annotations != nil {
+		if meta.Annotations == nil {
+			meta.Annotations = make(map[string]string)
+		}
+		for k, v := range patch.Annotations {
+			meta.Annotations[k] = v
+		}
+	}
 }

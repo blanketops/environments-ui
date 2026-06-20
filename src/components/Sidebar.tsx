@@ -14,7 +14,6 @@ const NAV: Section[] = [
     title: 'ENVIRONMENTS', items: [
       { label: 'environment',  to: '/environments',  icon: 'ti-box' },
       { label: 'build',        to: '/builds',        icon: 'ti-package' },
-      { label: 'build trigger',to: '/buildtriggers', icon: 'ti-player-play' },
       { label: 'package',      to: '/packages',      icon: 'ti-box-multiple' },
       { label: 'service unit', to: '/serviceunits',  icon: 'ti-server' },
       { label: 'deployment',   to: '/deployments',   icon: 'ti-rocket' },
@@ -33,9 +32,7 @@ const NAV: Section[] = [
   },
   {
     title: 'EVENTS', items: [
-      { label: 'github event',   to: '/githubevents',   icon: 'ti-webhook' },
-      { label: 'github payload', to: '/githubpayloads', icon: 'ti-file-code' },
-    ],
+      { label: 'github event',   to: '/githubevents',   icon: 'ti-webhook' },    ],
   },
   {
     title: 'SUPPLY CHAIN', items: [

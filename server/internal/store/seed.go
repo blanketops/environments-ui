@@ -119,39 +119,6 @@ func Seed(s *Store) {
 		},
 	})
 
-	s.SeedKind("buildtriggers", []types.CRStatus{
-		{
-			Name: "buildtrigger-for-kaniko-sample", Namespace: "dev", Kind: "buildtriggers",
-			Phase: "Ready", Generation: 2,
-			Spec: spec(map[string]any{
-				"source": "github", "eventType": "push",
-				"repository": map[string]any{"owner": "ntlaletsi70", "name": "blanketops-app"},
-				"ref":        "refs/heads/main",
-				"buildRef":   map[string]any{"name": "build-for-kaniko-sample"},
-			}),
-			Conditions: []types.Condition{
-				{Type: "EventMatched", Status: "True", Reason: "Matched", Message: "GitHubEvent matches trigger criteria", LastTransitionTime: agoISO(72 * time.Hour)},
-				{Type: "BuildDispatched", Status: "True", Reason: "Dispatched", Message: "Build CR reconciliation triggered", LastTransitionTime: agoISO(72 * time.Hour)},
-				{Type: "Ready", Status: "True", Reason: "ReconcileSuccess", Message: "Trigger satisfied", LastTransitionTime: agoISO(72 * time.Hour)},
-			},
-			Events: []types.CREvent{},
-		},
-		{
-			Name: "trigger-api-main", Namespace: "blanketops-system", Kind: "buildtriggers",
-			Phase: "Ready", Generation: 2,
-			Spec:       spec(map[string]any{"source": "github", "eventType": "push", "branch": "main", "buildRef": map[string]any{"name": "build-api"}}),
-			Conditions: readyConds("Watching branch main"),
-			Events:     []types.CREvent{},
-		},
-		{
-			Name: "trigger-gateway-main", Namespace: "blanketops-system", Kind: "buildtriggers",
-			Phase: "Failed", Generation: 3,
-			Spec:       spec(map[string]any{"source": "github", "eventType": "push", "branch": "main", "buildRef": map[string]any{"name": "build-gateway"}}),
-			Conditions: failedConds("Last triggered build failed — trigger paused"),
-			Events:     []types.CREvent{ev("Warning", "BuildFailed", "build-gateway failed — trigger paused", 3)},
-		},
-	})
-
 	s.SeedKind("packages", []types.CRStatus{
 		{
 			Name: "package-for-kaniko-sample", Namespace: "blanketops-environments", Kind: "packages",
@@ -278,21 +245,6 @@ func Seed(s *Store) {
 		},
 	})
 
-	s.SeedKind("githubpayloads", []types.CRStatus{
-		{
-			Name: "githubpayload-abc123", Namespace: "dev", Kind: "githubpayloads",
-			Phase: "Ready", Generation: 1,
-			Spec: spec(map[string]any{
-				"repository": "ntlaletsi70/blanketops-app",
-				"eventType":  "push", "ref": "refs/heads/main",
-				"sha": "abc1234567890def", "author": "ntlaletsi70",
-				"message": "feat: add kaniko build support",
-			}),
-			Conditions: readyConds("Payload processed"),
-			Events:     []types.CREvent{ev("Normal", "PayloadParsed", "Push event parsed from githubevent-for-kaniko-sample", 1)},
-		},
-	})
-
 	s.SeedKind("routes", []types.CRStatus{
 		{
 			Name: "shopping-app-route", Namespace: "tenant-a", Kind: "routes",
@@ -364,10 +316,10 @@ func Seed(s *Store) {
 			Name: "for-kaniko-app-webhook", Namespace: "default", Kind: "githubwebhooks",
 			Phase: "Ready", Generation: 1,
 			Spec: spec(map[string]any{
-				"repository":    "ntlaletsi70/for-kaniko-app",
+				"repository":     "ntlaletsi70/for-kaniko-app",
 				"supplyChainRef": map[string]any{"name": "for-kaniko-app"},
-				"hookURL":       "https://pop-os.tailf8145.ts.net",
-				"events":        []string{"push"},
+				"hookURL":        "https://pop-os.tailf8145.ts.net",
+				"events":         []string{"push"},
 			}),
 			Conditions: readyConds("GitHubWebhook active"),
 			Events:     []types.CREvent{},

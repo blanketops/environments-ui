@@ -75,7 +75,6 @@ function kindClient(kind: string, defaultNs = 'default') {
 
 export const environmentsClient   = kindClient('environments')
 export const buildsClient          = kindClient('builds')
-export const buildTriggersClient   = kindClient('buildtriggers')
 export const packagesClient        = kindClient('packages')
 export const serviceUnitsClient    = kindClient('serviceunits')
 export const deploymentsClient     = kindClient('deployments')

@@ -12,9 +12,8 @@ import (
 
 // KnownKinds is the complete list of supported CR kinds.
 var KnownKinds = []string{
-	"environments", "builds", "buildtriggers", "packages",
 	"serviceunits", "deployments", "gitrepositories",
-	"githubevents", "githubpayloads", "routes", "domains",
+	"githubevents", "routes", "domains",
 	"supplychains", "githubwebhooks",
 }
 

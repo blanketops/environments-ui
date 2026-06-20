@@ -74,7 +74,6 @@ const PIPELINES: PipelineEnv[] = [
     build: [
       { l: 'GitRepository', i: 'ti-git-branch',  s: 'ready' },
       { l: 'GitHubEvent',   i: 'ti-webhook',      s: 'ready' },
-      { l: 'BuildTrigger',  i: 'ti-player-play',  s: 'ready' },
       { l: 'Build',         i: 'ti-package',       s: 'running' },
       { l: 'SupplyChain',   i: 'ti-shield-check', s: 'pending' },
       { l: 'Package',       i: 'ti-box-multiple',  s: 'pending' },
@@ -91,7 +90,6 @@ const PIPELINES: PipelineEnv[] = [
     build: [
       { l: 'GitRepository', i: 'ti-git-branch',  s: 'ready' },
       { l: 'GitHubEvent',   i: 'ti-webhook',      s: 'ready' },
-      { l: 'BuildTrigger',  i: 'ti-player-play',  s: 'ready' },
       { l: 'Build',         i: 'ti-package',       s: 'ready' },
       { l: 'SupplyChain',   i: 'ti-shield-check', s: 'ready' },
       { l: 'Package',       i: 'ti-box-multiple',  s: 'ready' },
@@ -138,7 +136,6 @@ function PipelineStages({ stages }: { stages: Stage[] }) {
 const QUICK_ACTIONS = [
   { icon: 'ti-box',         label: 'New Environment', sub: 'root CR',              bg: 'var(--blue-bg)',   c: 'var(--blue)',   to: '/environments' },
   { icon: 'ti-package',     label: 'New Build',       sub: 'kaniko · buildah',     bg: 'var(--green-bg)',  c: 'var(--green)',  to: '/builds' },
-  { icon: 'ti-player-play', label: 'New Trigger',     sub: 'push · pull_request',  bg: 'var(--amber-bg)',  c: 'var(--amber)',  to: '/buildtriggers' },
   { icon: 'ti-box-multiple',label: 'New Package',     sub: 'kustomize · state repo',bg: 'var(--bg3)',      c: 'var(--text2)', to: '/packages' },
   { icon: 'ti-server',      label: 'New ServiceUnit', sub: 'static · build',       bg: 'var(--red-bg)',    c: 'var(--red)',    to: '/serviceunits' },
   { icon: 'ti-route',       label: 'New Route',       sub: 'platform · custom',    bg: 'var(--blue-bg)',   c: 'var(--blue)',   to: '/routes' },

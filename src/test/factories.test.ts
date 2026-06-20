@@ -13,7 +13,6 @@ import {
   makeWarningEvent,
   makeEnvironment,
   makeBuild,
-  makeBuildTrigger,
   makePackage,
   makeServiceUnit,
   makeDeployment,
@@ -64,7 +63,6 @@ describe('makeWarningEvent', () => {
 const cases = [
   ['Environment', makeEnvironment, 'environments'],
   ['Build', makeBuild, 'builds'],
-  ['BuildTrigger', makeBuildTrigger, 'buildtriggers'],
   ['Package', makePackage, 'packages'],
   ['ServiceUnit', makeServiceUnit, 'serviceunits'],
   ['Deployment', makeDeployment, 'deployments'],

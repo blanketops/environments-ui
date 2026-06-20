@@ -11,7 +11,6 @@ const RESOURCE_GROUPS = [
     items: [
       { icon: 'ti-box',          kind: 'Environment',  to: '/environments/new',   desc: 'Root CR — namespace, secret store, env type' },
       { icon: 'ti-package',      kind: 'Build',         to: '/builds/new',         desc: 'Shipwright — kaniko, buildpacks, buildah' },
-      { icon: 'ti-player-play',  kind: 'BuildTrigger',  to: '/buildtriggers/new',  desc: 'Git push → BuildRun via GitHubEvent' },
       { icon: 'ti-box-multiple', kind: 'Package',       to: '/packages/new',       desc: 'kapp-diff + kustomize state repo reconciliation' },
       { icon: 'ti-server',       kind: 'ServiceUnit',   to: '/serviceunits/new',   desc: 'Runtime unit — image, port, env, size' },
       { icon: 'ti-rocket',       kind: 'Deployment',    to: '/deployments/new',    desc: 'FluxCD overlay — rolling, blue-green, canary' },

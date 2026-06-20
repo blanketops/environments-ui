@@ -93,13 +93,6 @@ export function makeBuild(overrides: Partial<CRStatus> = {}): CRStatus {
   })
 }
 
-export function makeBuildTrigger(overrides: Partial<CRStatus> = {}): CRStatus {
-  return baseCR('buildtriggers', {
-    name: 'trigger-sample',
-    spec: { branch: 'main', buildRef: 'build-sample' },
-    ...overrides,
-  })
-}
 
 export function makePackage(overrides: Partial<CRStatus> = {}): CRStatus {
   return baseCR('packages', {

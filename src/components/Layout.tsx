@@ -1,6 +1,7 @@
 import type { FC, ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
+import { ConnectivityPill } from './ConnectivityPill'
 
 interface RouteMeta { title: string; badge?: string }
 
@@ -39,12 +40,15 @@ export const Layout: FC<Props> = ({ children }) => {
             <span className="topbar-title">{meta.title}</span>
             {meta.badge && <span className="kind-badge">{meta.badge}</span>}
           </div>
-          {isDashboard && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="live-dot" />
-              <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>live</span>
-            </div>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <ConnectivityPill />
+            {isDashboard && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="live-dot" />
+                <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>live</span>
+              </div>
+            )}
+          </div>
         </div>
         <div className="content">{children}</div>
       </div>

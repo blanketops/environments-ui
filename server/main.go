@@ -413,6 +413,9 @@ func handleDebug(k8s client.Client) http.HandlerFunc {
 
 // ── Status converters ─────────────────────────────────────────────────────
 
+// Replace the old buildToStatus and inferPhase with these:
+// Replace the old buildToStatus and inferPhase with these:
+
 func buildToStatus(b *environmentsv1alpha1.Build) types.CRStatus {
 	conds := make([]types.Condition, len(b.Status.Conditions))
 	for i, c := range b.Status.Conditions {
@@ -424,17 +427,83 @@ func buildToStatus(b *environmentsv1alpha1.Build) types.CRStatus {
 			LastTransitionTime: c.LastTransitionTime.Format(time.RFC3339),
 		}
 	}
+
+	// Pull contract status (ExecutionRef, Success, etc.) into annotations
+	// so the UI can display it without parsing the spec
+	annotations := b.Annotations
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	if len(b.Status.Contract.Raw) > 0 {
+		var cs map[string]interface{}
+		if err := json.Unmarshal(b.Status.Contract.Raw, &cs); err == nil {
+			if ref, ok := cs["ExecutionRef"].(string); ok && ref != "" {
+				annotations["build.blanketops.dev/executionRef"] = ref
+			}
+			if hash, ok := cs["BuildHash"].(string); ok && hash != "" {
+				annotations["build.blanketops.dev/buildHash"] = hash
+			}
+			if msg, ok := cs["Message"].(string); ok && msg != "" {
+				annotations["build.blanketops.dev/message"] = msg
+			}
+			if success, ok := cs["Success"].(bool); ok {
+				annotations["build.blanketops.dev/success"] = fmt.Sprintf("%v", success)
+			}
+		}
+	}
+
 	return types.CRStatus{
 		Name:        b.Name,
 		Namespace:   b.Namespace,
 		Kind:        "Build",
-		Phase:       inferPhase(conds),
+		Phase:       inferBuildPhase(conds),
 		Generation:  b.Generation,
 		Labels:      b.Labels,
-		Annotations: b.Annotations,
+		Annotations: annotations,
 		Conditions:  conds,
 		Spec:        b.Spec.Contract.Raw,
 	}
+}
+
+func inferBuildPhase(conds []types.Condition) types.Phase {
+	var resolved, cached, prereqs, ready, started, succeeded, failed bool
+
+	for _, c := range conds {
+		switch c.Type {
+		case "BuildResolved":
+			resolved = c.Status == "True"
+		case "BuildCached":
+			cached = c.Status == "True"
+		case "BuildPrerequisitesCreated":
+			prereqs = c.Status == "True"
+		case "BuildReady":
+			ready = c.Status == "True"
+		case "BuildStart":
+			started = c.Status == "True"
+		case "BuildSuccess":
+			succeeded = c.Status == "True"
+		}
+		if c.Status == "False" {
+			switch c.Reason {
+			case "BuildFailed", "ResolveFailed", "PrerequisitesFailed", "CacheFailed":
+				failed = true
+			}
+		}
+	}
+
+	if failed {
+		return types.PhaseFailed
+	}
+	if succeeded {
+		return types.PhaseReady
+	}
+	if started {
+		return types.PhaseRunning
+	}
+	if ready || prereqs || cached || resolved {
+		return types.PhasePending
+	}
+	return types.PhaseUnknown
 }
 
 func githubEventToStatus(e *eventsv1alpha1.GitHubEvent) types.CRStatus {
@@ -448,17 +517,58 @@ func githubEventToStatus(e *eventsv1alpha1.GitHubEvent) types.CRStatus {
 			LastTransitionTime: c.LastTransitionTime.Format(time.RFC3339),
 		}
 	}
+
 	return types.CRStatus{
 		Name:        e.Name,
 		Namespace:   e.Namespace,
 		Kind:        "GitHubEvent",
-		Phase:       inferPhase(conds),
+		Phase:       inferGitHubEventPhase(conds),
 		Generation:  e.Generation,
 		Labels:      e.Labels,
 		Annotations: e.Annotations,
 		Conditions:  conds,
 		Spec:        e.Spec.Contract.Raw,
 	}
+}
+
+func inferGitHubEventPhase(conds []types.Condition) types.Phase {
+	var resolved, cached, prereqs, organized, accepted bool
+	var failed bool
+
+	for _, c := range conds {
+		switch c.Type {
+		case "GitHubEventResolved":
+			resolved = c.Status == "True"
+		case "GitHubEventCached":
+			cached = c.Status == "True"
+		case "GitHubEventPrerequisitesCreated":
+			prereqs = c.Status == "True"
+		case "GitHubEventOrganized":
+			organized = c.Status == "True"
+		case "GitHubEventAccepted":
+			accepted = c.Status == "True"
+		}
+		if c.Status == "False" {
+			switch c.Reason {
+			case "GitHubEventRejected", "MatchFailed", "TriggerFailed":
+				failed = true
+			}
+		}
+	}
+
+	if failed {
+		return types.PhaseFailed
+	}
+	if accepted {
+		return types.PhaseReady
+	}
+	if organized {
+		return types.PhaseRunning
+	}
+	if prereqs || cached || resolved {
+		return types.PhasePending
+	}
+	return types.PhaseUnknown
 }
 
 func inferPhase(conds []types.Condition) types.Phase {

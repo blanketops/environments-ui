@@ -6,7 +6,6 @@ import { Dashboard } from './pages/Dashboard'
 // Environments group
 import { EnvironmentList }   from './pages/environments/EnvironmentList'
 import { BuildList }          from './pages/environments/BuildList'
-import { BuildTriggerList }   from './pages/environments/BuildTriggerList'
 import { PackageList }        from './pages/environments/PackageList'
 import { ServiceUnitList }    from './pages/environments/ServiceUnitList'
 import { DeploymentList }     from './pages/environments/DeploymentList'
@@ -16,7 +15,6 @@ import { GitRepositoryList }  from './pages/sources/GitRepositoryList'
 
 // Events
 import { GitHubEventList }    from './pages/events/GitHubEventList'
-import { GitHubPayloadList }  from './pages/events/GitHubPayloadList'
 
 // Networking
 import { RouteList }          from './pages/networking/RouteList'
@@ -29,7 +27,6 @@ import { GitHubWebhookList }  from './pages/supplychain/GitHubWebhookList'
 // Create forms — existing
 import { EnvironmentForm }    from './forms/EnvironmentForm'
 import { BuildForm }          from './forms/BuildForm'
-import { BuildTriggerForm }   from './forms/BuildTriggerForm'
 import { PackageForm }        from './forms/PackageForm'
 import { ServiceUnitForm }    from './forms/ServiceUnitForm'
 import { DeploymentForm }     from './forms/DeploymentForm'
@@ -55,8 +52,6 @@ export default function App() {
           <Route path="/environments/new"   element={<EnvironmentForm />} />
           <Route path="/builds"             element={<BuildList />} />
           <Route path="/builds/new"         element={<BuildForm />} />
-          <Route path="/buildtriggers"      element={<BuildTriggerList />} />
-          <Route path="/buildtriggers/new"  element={<BuildTriggerForm />} />
           <Route path="/packages"           element={<PackageList />} />
           <Route path="/packages/new"       element={<PackageForm />} />
           <Route path="/serviceunits"       element={<ServiceUnitList />} />
@@ -77,8 +72,6 @@ export default function App() {
           {/* Events */}
           <Route path="/githubevents"         element={<GitHubEventList />} />
           <Route path="/githubevents/new"     element={<GitHubEventForm />} />
-          <Route path="/githubpayloads"       element={<GitHubPayloadList />} />
-
           {/* Supply chain */}
           <Route path="/supplychains"         element={<SupplyChainList />} />
           <Route path="/supplychains/new"     element={<SupplyChainForm />} />

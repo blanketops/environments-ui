@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	environmentsv1alpha1 "github.com/ntlaletsi70/blanketops-environments-api/api/environments/v1alpha1"
@@ -15,7 +14,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -33,71 +31,33 @@ func main() {
 	scheme := runtime.NewScheme()
 	_ = environmentsv1alpha1.AddToScheme(scheme)
 	_ = eventsv1alpha1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
 
 	// ── K8s client ─────────────────────────────────────────────────────
-	k8s, err := newK8sClient(scheme)
+	k8sClient, err := newK8sClient(scheme)
 	if err != nil {
-		slog.Error("k8s client required", "err", err)
-		os.Exit(1)
+		slog.Warn("k8s client unavailable", "err", err)
 	}
 
 	// ── Router ─────────────────────────────────────────────────────────
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /api/v1/{kind}/{ns}/{name}/events", handleEvents(k8s))
-	mux.HandleFunc("GET /api/v1/{kind}/{ns}/{name}/debug", handleDebug(k8s))
+	mux.HandleFunc("GET /health", handleHealth(k8sClient))
+	mux.HandleFunc("GET /api/v1/{kind}/{ns}/{name}/events", handleEvents(k8sClient))
+	mux.HandleFunc("GET /api/v1/{kind}/{ns}/{name}/debug", handleDebug(k8sClient))
+	mux.HandleFunc("GET /api/v1/{kind}/{ns}/{name}", handleGet(k8sClient))
+	mux.HandleFunc("PATCH /api/v1/{kind}/{ns}/{name}", handlePatch(k8sClient))
+	mux.HandleFunc("DELETE /api/v1/{kind}/{ns}/{name}", handleDelete(k8sClient))
+	mux.HandleFunc("GET /api/v1/{kind}", handleList(k8sClient))
+	mux.HandleFunc("POST /api/v1/{kind}", handleCreate(k8sClient))
 
-	mux.HandleFunc("GET    /api/v1/{kind}/{ns}/{name}", handleGet(k8s))
-	mux.HandleFunc("PATCH  /api/v1/{kind}/{ns}/{name}", handlePatch(k8s))
-	mux.HandleFunc("DELETE /api/v1/{kind}/{ns}/{name}", handleDelete(k8s))
-
-	mux.HandleFunc("GET  /api/v1/{kind}", handleList(k8s))
-	mux.HandleFunc("POST /api/v1/{kind}", handleCreate(k8s))
-
-	mux.HandleFunc("GET /health", handleHealth(k8s))
-
-	slog.Info("blanketops environments front server", "addr", ":"+port, "store", "kubernetes")
+	slog.Info("blanketops server", "addr", ":"+port, "k8s", k8sClient != nil)
 	if err := http.ListenAndServe(":"+port, cors(mux)); err != nil {
 		slog.Error("server error", "err", err)
 		os.Exit(1)
 	}
 }
 
-// And this function:
-func handleHealth(k8s client.Client) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if k8s == nil {
-			writeJSON(w, 503, map[string]any{
-				"status":    "unavailable",
-				"reason":    "Kubernetes client not initialized",
-				"connected": false,
-			})
-			return
-		}
-
-		// Lightweight check: list namespaces (or any cheap API call)
-		var nsList corev1.NamespaceList
-		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-		defer cancel()
-
-		if err := k8s.List(ctx, &nsList, client.Limit(1)); err != nil {
-			writeJSON(w, 503, map[string]any{
-				"status":    "unavailable",
-				"reason":    err.Error(),
-				"connected": false,
-			})
-			return
-		}
-
-		writeJSON(w, 200, map[string]any{
-			"status":    "ok",
-			"connected": true,
-			"store":     "kubernetes",
-		})
-	}
-}
-
-// newK8sClient tries in-cluster config first, then local kubeconfig.
 func newK8sClient(scheme *runtime.Scheme) (client.Client, error) {
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -112,8 +72,6 @@ func newK8sClient(scheme *runtime.Scheme) (client.Client, error) {
 	return client.New(cfg, client.Options{Scheme: scheme})
 }
 
-// ── Middleware ────────────────────────────────────────────────────────────
-
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -126,8 +84,6 @@ func cors(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-
-// ── JSON helpers ──────────────────────────────────────────────────────────
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -149,48 +105,53 @@ func decode[T any](r *http.Request) (T, error) {
 	return v, nil
 }
 
-// ── Kind → GVK mapping ───────────────────────────────────────────────────
-
-func kindToGVK(kind string) (schema.GroupVersionKind, bool) {
+func kindToGVK(kind string) (string, bool) {
 	switch kind {
 	case "builds":
-		return environmentsv1alpha1.GroupVersion.WithKind("Build"), true
+		return "Build", true
 	case "githubevents":
-		return eventsv1alpha1.GroupVersion.WithKind("GitHubEvent"), true
-	// Add more as you wire them up...
+		return "GitHubEvent", true
 	default:
-		return schema.GroupVersionKind{}, false
+		return "", false
 	}
 }
 
-// pluralize converts "builds" → "Build" for the CR kind field
-func singularKind(kind string) string {
-	switch kind {
-	case "builds":
-		return "Build"
-	case "githubevents":
-		return "GitHubEvent"
-	default:
-		return strings.TrimSuffix(strings.Title(kind), "s")
+// ── Health ────────────────────────────────────────────────────────────────
+
+func handleHealth(k8s client.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if k8s == nil {
+			writeJSON(w, 503, map[string]any{
+				"status": "unavailable", "connected": false,
+				"reason": "Kubernetes client not initialized",
+			})
+			return
+		}
+		var nsList corev1.NamespaceList
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+		if err := k8s.List(ctx, &nsList, client.Limit(1)); err != nil {
+			writeJSON(w, 503, map[string]any{
+				"status": "unavailable", "connected": false,
+				"reason": err.Error(),
+			})
+			return
+		}
+		writeJSON(w, 200, map[string]any{
+			"status": "ok", "connected": true, "store": "kubernetes",
+		})
 	}
 }
 
-// ── Handlers ──────────────────────────────────────────────────────────────
+// ── List ──────────────────────────────────────────────────────────────────
 
 func handleList(k8s client.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		kind := r.PathValue("kind")
 		ns := r.URL.Query().Get("namespace")
 
-		gvk, ok := kindToGVK(kind)
-		if !ok {
-			writeErr(w, 400, fmt.Sprintf("unknown kind: %s", kind), "BadRequest")
-			return
-		}
-
-		// Use the typed list for the kind
-		switch gvk.Kind {
-		case "Build":
+		switch kind {
+		case "builds":
 			var list environmentsv1alpha1.BuildList
 			opts := []client.ListOption{}
 			if ns != "" {
@@ -206,7 +167,7 @@ func handleList(k8s client.Client) http.HandlerFunc {
 			}
 			writeJSON(w, 200, types.ListResponse{Items: items, Total: len(items)})
 
-		case "GitHubEvent":
+		case "githubevents":
 			var list eventsv1alpha1.GitHubEventList
 			opts := []client.ListOption{}
 			if ns != "" {
@@ -223,10 +184,12 @@ func handleList(k8s client.Client) http.HandlerFunc {
 			writeJSON(w, 200, types.ListResponse{Items: items, Total: len(items)})
 
 		default:
-			writeErr(w, 400, fmt.Sprintf("list not implemented for kind: %s", kind), "BadRequest")
+			writeErr(w, 400, fmt.Sprintf("unknown kind: %s", kind), "BadRequest")
 		}
 	}
 }
+
+// ── Get ───────────────────────────────────────────────────────────────────
 
 func handleGet(k8s client.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -234,34 +197,28 @@ func handleGet(k8s client.Client) http.HandlerFunc {
 		ns := r.PathValue("ns")
 		name := r.PathValue("name")
 
-		gvk, ok := kindToGVK(kind)
-		if !ok {
-			writeErr(w, 400, fmt.Sprintf("unknown kind: %s", kind), "BadRequest")
-			return
-		}
-
-		switch gvk.Kind {
-		case "Build":
+		switch kind {
+		case "builds":
 			var build environmentsv1alpha1.Build
 			if err := k8s.Get(r.Context(), client.ObjectKey{Namespace: ns, Name: name}, &build); err != nil {
 				writeErr(w, 404, err.Error(), "NotFound")
 				return
 			}
 			writeJSON(w, 200, buildToStatus(&build))
-
-		case "GitHubEvent":
+		case "githubevents":
 			var event eventsv1alpha1.GitHubEvent
 			if err := k8s.Get(r.Context(), client.ObjectKey{Namespace: ns, Name: name}, &event); err != nil {
 				writeErr(w, 404, err.Error(), "NotFound")
 				return
 			}
 			writeJSON(w, 200, githubEventToStatus(&event))
-
 		default:
-			writeErr(w, 400, fmt.Sprintf("get not implemented for kind: %s", kind), "BadRequest")
+			writeErr(w, 400, fmt.Sprintf("unknown kind: %s", kind), "BadRequest")
 		}
 	}
 }
+
+// ── Create ────────────────────────────────────────────────────────────────
 
 func handleCreate(k8s client.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -270,13 +227,11 @@ func handleCreate(k8s client.Client) http.HandlerFunc {
 		if ns == "" {
 			ns = "default"
 		}
-
 		body, err := decode[types.CreateBody](r)
 		if err != nil {
 			writeErr(w, 400, err.Error(), "BadRequest")
 			return
 		}
-
 		name := body.Metadata.Name
 		if name == "" {
 			name = fmt.Sprintf("%s-%d", kind, time.Now().UnixMilli())
@@ -286,8 +241,7 @@ func handleCreate(k8s client.Client) http.HandlerFunc {
 		case "builds":
 			build := &environmentsv1alpha1.Build{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        name,
-					Namespace:   ns,
+					Name: name, Namespace: ns,
 					Labels:      body.Metadata.Labels,
 					Annotations: body.Metadata.Annotations,
 				},
@@ -304,8 +258,7 @@ func handleCreate(k8s client.Client) http.HandlerFunc {
 		case "githubevents":
 			event := &eventsv1alpha1.GitHubEvent{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        name,
-					Namespace:   ns,
+					Name: name, Namespace: ns,
 					Labels:      body.Metadata.Labels,
 					Annotations: body.Metadata.Annotations,
 				},
@@ -325,26 +278,21 @@ func handleCreate(k8s client.Client) http.HandlerFunc {
 	}
 }
 
+// ── Patch ─────────────────────────────────────────────────────────────────
+
 func handlePatch(k8s client.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		kind := r.PathValue("kind")
 		ns := r.PathValue("ns")
 		name := r.PathValue("name")
-
 		body, err := decode[types.PatchBody](r)
 		if err != nil {
 			writeErr(w, 400, err.Error(), "BadRequest")
 			return
 		}
 
-		gvk, ok := kindToGVK(kind)
-		if !ok {
-			writeErr(w, 400, fmt.Sprintf("unknown kind: %s", kind), "BadRequest")
-			return
-		}
-
-		switch gvk.Kind {
-		case "Build":
+		switch kind {
+		case "builds":
 			var build environmentsv1alpha1.Build
 			if err := k8s.Get(r.Context(), client.ObjectKey{Namespace: ns, Name: name}, &build); err != nil {
 				writeErr(w, 404, err.Error(), "NotFound")
@@ -363,7 +311,7 @@ func handlePatch(k8s client.Client) http.HandlerFunc {
 			}
 			writeJSON(w, 200, buildToStatus(&build))
 
-		case "GitHubEvent":
+		case "githubevents":
 			var event eventsv1alpha1.GitHubEvent
 			if err := k8s.Get(r.Context(), client.ObjectKey{Namespace: ns, Name: name}, &event); err != nil {
 				writeErr(w, 404, err.Error(), "NotFound")
@@ -388,20 +336,16 @@ func handlePatch(k8s client.Client) http.HandlerFunc {
 	}
 }
 
+// ── Delete ────────────────────────────────────────────────────────────────
+
 func handleDelete(k8s client.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		kind := r.PathValue("kind")
 		ns := r.PathValue("ns")
 		name := r.PathValue("name")
 
-		gvk, ok := kindToGVK(kind)
-		if !ok {
-			writeErr(w, 400, fmt.Sprintf("unknown kind: %s", kind), "BadRequest")
-			return
-		}
-
-		switch gvk.Kind {
-		case "Build":
+		switch kind {
+		case "builds":
 			build := &environmentsv1alpha1.Build{
 				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
 			}
@@ -410,8 +354,7 @@ func handleDelete(k8s client.Client) http.HandlerFunc {
 				return
 			}
 			writeJSON(w, 200, types.DeleteResponse{Name: name, Namespace: ns, Kind: kind, Deleted: true})
-
-		case "GitHubEvent":
+		case "githubevents":
 			event := &eventsv1alpha1.GitHubEvent{
 				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns},
 			}
@@ -420,30 +363,24 @@ func handleDelete(k8s client.Client) http.HandlerFunc {
 				return
 			}
 			writeJSON(w, 200, types.DeleteResponse{Name: name, Namespace: ns, Kind: kind, Deleted: true})
-
 		default:
 			writeErr(w, 400, fmt.Sprintf("delete not implemented for kind: %s", kind), "BadRequest")
 		}
 	}
 }
 
+// ── Sub-resources ─────────────────────────────────────────────────────────
+
 func handleEvents(k8s client.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Events are in the CR status — read the CR and return its events
-		// For now, return empty (controller emits real K8s events separately)
 		writeJSON(w, 200, []types.CREvent{})
 	}
 }
 
 func handleDebug(k8s client.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Debug is synthetic — could query controller metrics in future
-		handleGet(k8s)(w, r)
-		// Simplified: return a stub debug info
 		writeJSON(w, 200, types.DebugInfo{
-			Name:       r.PathValue("name"),
-			Namespace:  r.PathValue("ns"),
-			Kind:       r.PathValue("kind"),
+			Name: r.PathValue("name"), Namespace: r.PathValue("ns"), Kind: r.PathValue("kind"),
 			QueueDepth: 0,
 		})
 	}
@@ -451,23 +388,14 @@ func handleDebug(k8s client.Client) http.HandlerFunc {
 
 // ── Status converters ─────────────────────────────────────────────────────
 
-// Replace the old buildToStatus and inferPhase with these:
-// Replace the old buildToStatus and inferPhase with these:
-
 func buildToStatus(b *environmentsv1alpha1.Build) types.CRStatus {
 	conds := make([]types.Condition, len(b.Status.Conditions))
 	for i, c := range b.Status.Conditions {
 		conds[i] = types.Condition{
-			Type:               c.Type,
-			Status:             string(c.Status),
-			Reason:             c.Reason,
-			Message:            c.Message,
-			LastTransitionTime: c.LastTransitionTime.Format(time.RFC3339),
+			Type: c.Type, Status: string(c.Status), Reason: c.Reason,
+			Message: c.Message, LastTransitionTime: c.LastTransitionTime.Format(time.RFC3339),
 		}
 	}
-
-	// Pull contract status (ExecutionRef, Success, etc.) into annotations
-	// so the UI can display it without parsing the spec
 	annotations := b.Annotations
 	if annotations == nil {
 		annotations = map[string]string{}
@@ -489,23 +417,32 @@ func buildToStatus(b *environmentsv1alpha1.Build) types.CRStatus {
 			}
 		}
 	}
-
 	return types.CRStatus{
-		Name:        b.Name,
-		Namespace:   b.Namespace,
-		Kind:        "Build",
-		Phase:       inferBuildPhase(conds),
-		Generation:  b.Generation,
-		Labels:      b.Labels,
-		Annotations: annotations,
-		Conditions:  conds,
-		Spec:        b.Spec.Contract.Raw,
+		Name: b.Name, Namespace: b.Namespace, Kind: "Build",
+		Phase: inferBuildPhase(conds), Generation: b.Generation,
+		Labels: b.Labels, Annotations: annotations, Conditions: conds,
+		Spec: b.Spec.Contract.Raw,
+	}
+}
+
+func githubEventToStatus(e *eventsv1alpha1.GitHubEvent) types.CRStatus {
+	conds := make([]types.Condition, len(e.Status.Conditions))
+	for i, c := range e.Status.Conditions {
+		conds[i] = types.Condition{
+			Type: c.Type, Status: string(c.Status), Reason: c.Reason,
+			Message: c.Message, LastTransitionTime: c.LastTransitionTime.Format(time.RFC3339),
+		}
+	}
+	return types.CRStatus{
+		Name: e.Name, Namespace: e.Namespace, Kind: "GitHubEvent",
+		Phase: inferGitHubEventPhase(conds), Generation: e.Generation,
+		Labels: e.Labels, Annotations: e.Annotations, Conditions: conds,
+		Spec: e.Spec.Contract.Raw,
 	}
 }
 
 func inferBuildPhase(conds []types.Condition) types.Phase {
 	var resolved, cached, prereqs, ready, started, succeeded, failed bool
-
 	for _, c := range conds {
 		switch c.Type {
 		case "BuildResolved":
@@ -528,7 +465,6 @@ func inferBuildPhase(conds []types.Condition) types.Phase {
 			}
 		}
 	}
-
 	if failed {
 		return types.PhaseFailed
 	}
@@ -544,35 +480,9 @@ func inferBuildPhase(conds []types.Condition) types.Phase {
 	return types.PhaseUnknown
 }
 
-func githubEventToStatus(e *eventsv1alpha1.GitHubEvent) types.CRStatus {
-	conds := make([]types.Condition, len(e.Status.Conditions))
-	for i, c := range e.Status.Conditions {
-		conds[i] = types.Condition{
-			Type:               c.Type,
-			Status:             string(c.Status),
-			Reason:             c.Reason,
-			Message:            c.Message,
-			LastTransitionTime: c.LastTransitionTime.Format(time.RFC3339),
-		}
-	}
-
-	return types.CRStatus{
-		Name:        e.Name,
-		Namespace:   e.Namespace,
-		Kind:        "GitHubEvent",
-		Phase:       inferGitHubEventPhase(conds),
-		Generation:  e.Generation,
-		Labels:      e.Labels,
-		Annotations: e.Annotations,
-		Conditions:  conds,
-		Spec:        e.Spec.Contract.Raw,
-	}
-}
-
 func inferGitHubEventPhase(conds []types.Condition) types.Phase {
 	var resolved, cached, prereqs, organized, accepted bool
 	var failed bool
-
 	for _, c := range conds {
 		switch c.Type {
 		case "GitHubEventResolved":
@@ -593,7 +503,6 @@ func inferGitHubEventPhase(conds []types.Condition) types.Phase {
 			}
 		}
 	}
-
 	if failed {
 		return types.PhaseFailed
 	}
@@ -605,18 +514,6 @@ func inferGitHubEventPhase(conds []types.Condition) types.Phase {
 	}
 	if prereqs || cached || resolved {
 		return types.PhasePending
-	}
-	return types.PhaseUnknown
-}
-
-func inferPhase(conds []types.Condition) types.Phase {
-	for _, c := range conds {
-		if c.Type == "Ready" {
-			if c.Status == "True" {
-				return types.PhaseReady
-			}
-			return types.PhasePending
-		}
 	}
 	return types.PhaseUnknown
 }

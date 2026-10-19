@@ -1,0 +1,97 @@
+# =============================================================================
+# release.yml — Publish GitHub Release
+#
+# Fires on push of a v* tag. Reads the already-current CHANGELOG.md for
+# release notes and publishes a GitHub Release.
+#
+# CHANGELOG.md itself is generated and committed by finalize-release.yml,
+# synchronously, before it merges main back into develop -- doing it there
+# instead of here closes a race where this workflow (triggered
+# asynchronously by the tag push) used to commit the changelog to main
+# after finalize-release.yml had already synced develop, leaving develop
+# permanently missing that commit.
+#
+# Secrets required:
+#   APP_ID, APP_PRIVATE_KEY — GitHub App credentials, exchanged for a
+#   short-lived installation token, used to check out main and publish
+#   the release.
+# =============================================================================
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: self-hosted
+    timeout-minutes: 15
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: blanketops
+          repositories: environments-ui
+
+      - name: Checkout tag
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Install git-cliff
+        run: |
+          GITCLIFF_VERSION="2.13.0"
+          curl -L "https://github.com/orhun/git-cliff/releases/download/v${GITCLIFF_VERSION}/git-cliff-${GITCLIFF_VERSION}-x86_64-unknown-linux-gnu.tar.gz" -o git-cliff.tar.gz
+          tar xzf git-cliff.tar.gz
+          sudo mv "git-cliff-${GITCLIFF_VERSION}/git-cliff" /usr/local/bin/git-cliff
+          rm -rf git-cliff.tar.gz "git-cliff-${GITCLIFF_VERSION}"
+          git-cliff --version
+
+      # finalize-release.yml already generated and committed CHANGELOG.md
+      # to main before tagging -- this just gets onto that tip.
+      - name: Checkout main
+        run: |
+          git checkout main
+          git pull origin main
+
+      - name: Generate release notes
+        run: git-cliff --config .cliff.toml --latest --output RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          body_path: RELEASE_NOTES.md
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Release Summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY <<EOF
+          # 📦 GitHub Release Published
+
+          **Version:** \`${{ github.ref_name }}\`
+
+          ## Completed
+
+          - Generated release notes from the already-current CHANGELOG.md
+          - Published GitHub Release
+
+          ## Artifacts
+
+          - CHANGELOG.md
+          - RELEASE_NOTES.md
+          - GitHub Release
+
+          ## Source Tag
+
+          \`${{ github.ref_name }}\`
+          EOF

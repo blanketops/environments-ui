@@ -1,0 +1,251 @@
+# =============================================================================
+# ci.yml — BlanketOps Environments UI CI
+#
+# Three-job pipeline:
+#   0. changes  — lists the files a push or pull request changed and reports
+#                 whether any of them is not documentation. ui and server
+#                 skip when none is.
+#   1. ui       — the React app at the repository root: npm ci, typecheck
+#                 (tsc), unit tests (vitest), production build (vite).
+#   2. server   — the Go API server in server/ (its own module): gofmt,
+#                 build, vet, golangci-lint, tests with coverage. ko.yml ships
+#                 this binary with the built UI as kodata, so a compile error
+#                 is caught here instead of at tag time.
+#
+# Docs-only changes:
+#   Skipping is done per job, through the `changes` job's output, and not
+#   with `paths-ignore` on the trigger. A workflow filtered out by path never
+#   reports its checks, so required ones would stay "Expected" and block the
+#   pull request. A job skipped by `if:` reports as skipped, which satisfies
+#   a required check. The gates fail open: they test `!= 'false'` under
+#   `!cancelled()`, so if `changes` fails or yields no output the jobs run.
+#
+# Versions:
+#   Go is read from server/go.mod at runtime; Node is pinned to the same
+#   major the other Node repos in the family use (environments-docs).
+#
+# Auth:
+#   No secrets. The server's only BlanketOps module dependency resolves
+#   through the public module proxy, so these jobs also run on Dependabot
+#   pull requests.
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "24"
+  GOFLAGS: -mod=readonly
+
+jobs:
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Job 0: Changes
+  # Outputs code=false only when every changed file is documentation; any
+  # doubt (new branch, unreadable range, empty diff) leaves it true.
+  # Workflow files are deliberately not documentation: a change under
+  # .github/workflows/ must still run the pipeline.
+  # ───────────────────────────────────────────────────────────────────────────
+  changes:
+    name: Detect Changes
+    runs-on: self-hosted
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.detect.outputs.code }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect non-documentation changes
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          DOCS='^(.*\.md|\.claude/.*|docs/.*|LICENSE|\.gitignore|\.github/ISSUE_TEMPLATE/.*)$'
+          ZERO=0000000000000000000000000000000000000000
+
+          code=true
+          reason=""
+          range=""
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # The checkout is the merge commit; its first parent is the base.
+            range="HEAD^1 HEAD"
+          elif [ -z "$BEFORE" ] || [ "$BEFORE" = "$ZERO" ]; then
+            reason="new branch, nothing to compare against"
+          else
+            range="$BEFORE $SHA"
+          fi
+
+          if [ -n "$range" ]; then
+            # shellcheck disable=SC2086 # range is two revisions
+            if files=$(git diff --name-only $range 2>/dev/null) && [ -n "$files" ]; then
+              other=$(printf '%s\n' "$files" | grep -vE "$DOCS" || true)
+              total=$(printf '%s\n' "$files" | wc -l | tr -d ' ')
+              if [ -z "$other" ]; then
+                code=false
+                reason="all $total changed files are documentation"
+              else
+                reason="$(printf '%s\n' "$other" | wc -l | tr -d ' ') of $total changed files are not documentation"
+              fi
+            else
+              reason="could not list changed files"
+            fi
+          fi
+
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          echo "code=$code ($reason)"
+
+      - name: Summary
+        if: always()
+        run: |
+          RESULT="${{ steps.detect.outputs.code == 'false' && 'Documentation only — ui and server jobs are skipped' || 'Code changed — full pipeline runs' }}"
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          # Change Detection
+
+          **Result:** ${RESULT}
+          **Reason:** ${{ steps.detect.outputs.reason || 'detection did not complete' }}
+          **Event:** \`${{ github.event_name }}\`
+          **Commit:** \`${{ github.sha }}\`
+          EOF
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Job 1: UI
+  # ───────────────────────────────────────────────────────────────────────────
+  ui:
+    name: UI — Typecheck, Test, Build
+    runs-on: self-hosted
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        id: typecheck
+        run: npx tsc --noEmit
+
+      - name: Test
+        id: test
+        run: npm test
+
+      - name: Build
+        id: build
+        run: npx vite build
+
+      - name: Summary
+        if: always()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          # 🖥️ UI
+
+          **Node:** \`$(node --version 2>/dev/null || echo unavailable)\`
+          **Branch:** \`${{ github.ref_name }}\`
+          **Commit:** \`${{ github.sha }}\`
+
+          | Step | Tool | Result |
+          | --- | --- | --- |
+          | Typecheck | \`tsc --noEmit\` | ${{ steps.typecheck.outcome }} |
+          | Test | \`vitest run\` | ${{ steps.test.outcome }} |
+          | Build | \`vite build\` | ${{ steps.build.outcome }} |
+          EOF
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Job 2: Server
+  # ───────────────────────────────────────────────────────────────────────────
+  server:
+    name: Server — Lint, Vet, Test
+    runs-on: self-hosted
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: server/go.mod
+          # The self-hosted runners keep Go's caches on a persistent volume
+          # (see environments' security.yml); round-tripping them through
+          # GitHub's cache costs more than it saves.
+          cache: false
+
+      - name: Download modules
+        run: go mod download
+
+      - name: gofmt
+        id: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt needed on:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Build + Vet
+        id: vet
+        run: |
+          go build ./...
+          go vet ./...
+
+      - name: Lint
+        id: lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          working-directory: server
+          # golangci-lint is baked into the self-hosted runner image and its
+          # cache lives on the runners' persistent volume (GOLANGCI_LINT_CACHE);
+          # same settings as environments' ci.yml.
+          install-mode: none
+          skip-cache: true
+          args: --timeout=5m
+
+      - name: Test
+        id: test
+        run: go test ./... -coverprofile=coverage.out -covermode=atomic
+
+      - name: Summary
+        if: always()
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out 2>/dev/null | awk '/^total:/ {print $3}')
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          # 🐹 Server
+
+          **Go:** \`$(go version | awk '{print $3}')\`
+          **Branch:** \`${{ github.ref_name }}\`
+          **Commit:** \`${{ github.sha }}\`
+          **Coverage:** \`${COVERAGE:-n/a}\`
+
+          | Step | Tool | Result |
+          | --- | --- | --- |
+          | Format | \`gofmt -l\` | ${{ steps.gofmt.outcome }} |
+          | Build + Vet | \`go build\`, \`go vet\` | ${{ steps.vet.outcome }} |
+          | Lint | \`golangci-lint\` | ${{ steps.lint.outcome }} |
+          | Test | \`go test\` | ${{ steps.test.outcome }} |
+          EOF

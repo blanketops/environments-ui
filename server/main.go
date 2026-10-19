@@ -105,17 +105,6 @@ func decode[T any](r *http.Request) (T, error) {
 	return v, nil
 }
 
-func kindToGVK(kind string) (string, bool) {
-	switch kind {
-	case "builds":
-		return "Build", true
-	case "githubevents":
-		return "GitHubEvent", true
-	default:
-		return "", false
-	}
-}
-
 // ── Health ────────────────────────────────────────────────────────────────
 
 func handleHealth(k8s client.Client) http.HandlerFunc {

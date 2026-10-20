@@ -20,13 +20,14 @@ The UI has pages and forms for every Environments kind (Environment, Build,
 Package, ServiceUnit, Deployment, Route, Domain, GitRepository, GitHubEvent,
 SupplyChain, GitHubWebhook). The server wires two of them to the cluster:
 
-| Kind | API path | List | Get | Create | Patch | Delete | Events |
-|------|----------|------|-----|--------|-------|--------|--------|
-| Build | `builds` | yes | yes | yes | yes | yes | yes |
-| GitHubEvent | `githubevents` | yes | yes | yes | yes | yes | yes |
+| Kind | API path | List | Get | Create | Patch | Delete |
+|------|----------|------|-----|--------|-------|--------|
+| Build | `builds` | yes | yes | yes | yes | yes |
+| GitHubEvent | `githubevents` | yes | yes | yes | yes | yes |
 
 Every other kind returns `400 unknown kind`, so those pages do not show
-cluster data yet.
+cluster data yet. The `events` and `debug` sub-resources are not wired:
+`events` returns an empty list and `debug` placeholder values.
 
 The UI is not part of `bops-env install` or the environments-install
 manifests; it is run separately (see below).

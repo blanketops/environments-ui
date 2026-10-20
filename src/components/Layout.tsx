@@ -1,54 +1,79 @@
-import type { FC, ReactNode } from 'react'
+import { useEffect, useState, type FC, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
-import { ConnectivityPill } from './ConnectivityPill'
 import { ConnectivityStatus } from './ConnectivityStatus'
+import { ModeToggle, SkinMenu } from './SkinControls'
+import { useConnectivity } from '../hooks/useConnectivity'
 
-interface RouteMeta { title: string; badge?: string }
-
-const ROUTE_META: Record<string, RouteMeta> = {
-  '/':           { title: 'home' },
-  '/dashboard':  { title: 'dashboard' },
-  '/environments':    { title: 'environment',    badge: 'Environment' },
-  '/builds':          { title: 'build',          badge: 'Build' },
-  '/packages':        { title: 'package',        badge: 'Package' },
-  '/serviceunits':    { title: 'service unit',   badge: 'ServiceUnit' },
-  '/deployments':     { title: 'deployment',     badge: 'Deployment' },
-  '/gitrepositories': { title: 'git repository', badge: 'GitRepository' },
-  '/githubevents':    { title: 'github event',   badge: 'GitHubEvent' },
-  '/routes':          { title: 'route',          badge: 'Route' },
-  '/domains':         { title: 'domain',         badge: 'Domain' },
-  '/supplychains':    { title: 'supply chain',   badge: 'SupplyChain' },
-  '/githubwebhooks':  { title: 'github webhook', badge: 'GitHubWebhook' },
+const ROUTE_META: Record<string, { title: string; badge?: string }> = {
+  '/':                { title: 'Home' },
+  '/dashboard':       { title: 'Dashboard' },
+  '/environments':    { title: 'Environments',   badge: 'Environment'   },
+  '/builds':          { title: 'Builds',         badge: 'Build'         },
+  '/packages':        { title: 'Packages',       badge: 'Package'       },
+  '/serviceunits':    { title: 'Service Units',  badge: 'ServiceUnit'   },
+  '/deployments':     { title: 'Deployments',    badge: 'Deployment'    },
+  '/gitrepositories': { title: 'Git Repositories', badge: 'GitRepository' },
+  '/githubevents':    { title: 'GitHub Events',  badge: 'GitHubEvent'   },
+  '/routes':          { title: 'Routes',         badge: 'Route'         },
+  '/domains':         { title: 'Domains',        badge: 'Domain'        },
+  '/supplychains':    { title: 'Supply Chains',  badge: 'SupplyChain'   },
+  '/githubwebhooks':  { title: 'GitHub Webhooks',badge: 'GitHubWebhook' },
 }
 
-interface Props { children: ReactNode }
+const SIDEBAR_KEY = 'blanketops.sidebar'
 
-export const Layout: FC<Props> = ({ children }) => {
-  const location = useLocation()
+function loadCollapsed(): boolean {
+  try { return window.localStorage.getItem(SIDEBAR_KEY) === 'collapsed' } catch { return false }
+}
+
+export const Layout: FC<{ children: ReactNode }> = ({ children }) => {
+  const location   = useLocation()
+  const { health } = useConnectivity()
+  const connected  = health?.connected ?? false
+  const [collapsed, setCollapsed] = useState(loadCollapsed)
+
+  useEffect(() => {
+    try { window.localStorage.setItem(SIDEBAR_KEY, collapsed ? 'collapsed' : 'expanded') } catch { /* page-only */ }
+  }, [collapsed])
+
   const base = '/' + location.pathname.split('/')[1]
-  const meta = ROUTE_META[base] ?? { title: 'dashboard' }
-  const isDashboard = base === '/dashboard'
+  const meta = ROUTE_META[base] ?? { title: 'Dashboard' }
 
   return (
     <div className="app">
-      <Sidebar />
+      <Sidebar collapsed={collapsed} />
       <div className="main">
-        <div className="topbar">
+
+        <header className="topbar">
           <div className="topbar-left">
+            <button
+              type="button"
+              className="topbar-btn topbar-btn--square"
+              onClick={() => setCollapsed(c => !c)}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-pressed={collapsed}
+            >
+              <i className={`ti ${collapsed ? 'ti-layout-sidebar-left-expand' : 'ti-layout-sidebar-left-collapse'}`} />
+            </button>
             <span className="topbar-title">{meta.title}</span>
             {meta.badge && <span className="kind-badge">{meta.badge}</span>}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <ConnectivityPill />
-            {isDashboard && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span className="live-dot" />
-                <span style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>live</span>
-              </div>
-            )}
+          <div className="topbar-right">
+            <span className={`watch${connected ? ' watch--live' : ''}`}>
+              <span className={`watching-dot${connected ? ' watching-dot--live' : ''}`} />
+              <span className="watching-label">{connected ? 'watching' : 'reconnecting…'}</span>
+            </span>
+            <SkinMenu />
+            <ModeToggle />
           </div>
+        </header>
+
+        {/* Indeterminate bar — sweeps when polling / reconnecting */}
+        <div className="tbar">
+          <div className={`tbar-fill${connected ? ' tbar-fill--active' : ' tbar-fill--warn'}`} />
         </div>
+
         <ConnectivityStatus />
         <div className="content">{children}</div>
       </div>

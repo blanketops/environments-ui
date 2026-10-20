@@ -26,7 +26,7 @@ interface Props { value: unknown }
 export const YamlBlock: FC<Props> = ({ value }) => {
   const raw = toYaml(value)
   return (
-    <pre className="text-[11px] leading-relaxed font-mono text-zinc-400 overflow-x-auto whitespace-pre p-3 bg-zinc-950 rounded-md border border-zinc-800">
+    <pre className="yaml-block">
       {raw}
     </pre>
   )

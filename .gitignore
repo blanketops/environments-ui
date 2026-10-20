@@ -30,3 +30,7 @@ Thumbs.db
 *.njsproj
 *.sln
 .claude
+
+# ko kodata: ko.yml copies dist/ here before `ko build` (ko does not
+# follow a kodata symlink that points outside the directory)
+/server/kodata/

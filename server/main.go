@@ -51,6 +51,14 @@ func main() {
 	mux.HandleFunc("GET /api/v1/{kind}", handleList(k8sClient))
 	mux.HandleFunc("POST /api/v1/{kind}", handleCreate(k8sClient))
 
+	// ── UI ─────────────────────────────────────────────────────────────
+	// The ko image bundles the built UI as kodata; serve it from the same
+	// origin as the API so the image runs without the nginx proxy.
+	if dir := uiDir(); dir != "" {
+		mux.Handle("GET /", uiHandler(dir))
+		slog.Info("serving ui", "dir", dir)
+	}
+
 	slog.Info("blanketops server", "addr", ":"+port, "k8s", k8sClient != nil)
 	if err := http.ListenAndServe(":"+port, cors(mux)); err != nil {
 		slog.Error("server error", "err", err)
@@ -103,17 +111,6 @@ func decode[T any](r *http.Request) (T, error) {
 		return v, fmt.Errorf("invalid request body: %w", err)
 	}
 	return v, nil
-}
-
-func kindToGVK(kind string) (string, bool) {
-	switch kind {
-	case "builds":
-		return "Build", true
-	case "githubevents":
-		return "GitHubEvent", true
-	default:
-		return "", false
-	}
 }
 
 // ── Health ────────────────────────────────────────────────────────────────

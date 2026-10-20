@@ -31,13 +31,13 @@ func main() {
 	api := js.ValueOf(map[string]any{})
 	js.Global().Set("blanketops", api)
 
-	api.Set("list",   js.FuncOf(wasmList))
-	api.Set("get",    js.FuncOf(wasmGet))
+	api.Set("list", js.FuncOf(wasmList))
+	api.Set("get", js.FuncOf(wasmGet))
 	api.Set("create", js.FuncOf(wasmCreate))
-	api.Set("patch",  js.FuncOf(wasmPatch))
+	api.Set("patch", js.FuncOf(wasmPatch))
 	api.Set("delete", js.FuncOf(wasmDelete))
 	api.Set("events", js.FuncOf(wasmEvents))
-	api.Set("debug",  js.FuncOf(wasmDebug))
+	api.Set("debug", js.FuncOf(wasmDebug))
 
 	select {} // keep goroutine alive
 }

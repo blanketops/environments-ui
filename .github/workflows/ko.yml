@@ -85,8 +85,10 @@ jobs:
           go-version-file: server/go.mod
           cache: false
 
-      - name: Setup ko
-        uses: ko-build/setup-ko@v0.10
+      # ko is baked into the runner image (zenith-runner-toolchain 1.0.11+);
+      # setup-ko downloaded it on every job over a slow link.
+      - name: Check ko
+        run: ko version
 
       - name: Login to GHCR
         run: |

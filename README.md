@@ -16,18 +16,31 @@ the credentials it runs under.
 
 ## Status
 
-The UI has pages and forms for every Environments kind (Environment, Build,
-Package, ServiceUnit, Deployment, Route, Domain, GitRepository, GitHubEvent,
-SupplyChain, GitHubWebhook). The server wires two of them to the cluster:
+The server serves every kind the UI has pages for, through one generic
+path: list, get, create, patch (replaces `spec.contract`, merges labels and
+annotations), delete, and the resource's Kubernetes events.
 
-| Kind | API path | List | Get | Create | Patch | Delete |
-|------|----------|------|-----|--------|-------|--------|
-| Build | `builds` | yes | yes | yes | yes | yes |
-| GitHubEvent | `githubevents` | yes | yes | yes | yes | yes |
+| Kind | API path | API group | Installed by |
+|------|----------|-----------|--------------|
+| Environment | `environments` | `environments.blanketops.dev` | environments-install |
+| Build | `builds` | `environments.blanketops.dev` | environments-install |
+| Package | `packages` | `environments.blanketops.dev` | environments-install |
+| ServiceUnit | `serviceunits` | `environments.blanketops.dev` | environments-install |
+| Deployment | `deployments` | `environments.blanketops.dev` | environments-install |
+| Route | `routes` | `networks.blanketops.dev` | environments-install |
+| Domain | `domains` | `networks.blanketops.dev` | environments-install |
+| GitRepository | `gitrepositories` | `sources.blanketops.dev` | environments-install |
+| GitHubEvent | `githubevents` | `events.blanketops.dev` | environments-install |
+| SupplyChain | `supplychains` | `supplychain.blanketops.dev` | secure-software-supply-chain |
+| GitHubWebhook | `githubwebhooks` | `supplychain.blanketops.dev` | secure-software-supply-chain |
 
-Every other kind returns `400 unknown kind`, so those pages do not show
-cluster data yet. The `events` and `debug` sub-resources are not wired:
-`events` returns an empty list and `debug` placeholder values.
+All versions are `v1alpha1`. A kind whose CRD is not in the cluster answers
+`404` with reason `NotInstalled`; an unknown path segment answers `400
+unknown kind`. The phase shown for Build and GitHubEvent follows their
+condition sequence; any other kind is Ready when every condition is True and
+Failed when a condition is False with a reason ending in `Failed`,
+`Rejected` or `Error`. The `debug` sub-resource is not wired and returns
+placeholder values.
 
 The UI is not part of `bops-env install` or the environments-install
 manifests; it is run separately (see below).

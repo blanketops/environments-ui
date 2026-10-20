@@ -1,46 +1,71 @@
-import type { FC, ReactNode } from 'react'
+import { useEffect, useState, type FC, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { ConnectivityStatus } from './ConnectivityStatus'
+import { ModeToggle, SkinMenu } from './SkinControls'
 import { useConnectivity } from '../hooks/useConnectivity'
 
 const ROUTE_META: Record<string, { title: string; badge?: string }> = {
-  '/':                { title: 'home' },
-  '/dashboard':       { title: 'dashboard' },
-  '/environments':    { title: 'environments',   badge: 'Environment'   },
-  '/builds':          { title: 'builds',         badge: 'Build'         },
-  '/packages':        { title: 'packages',       badge: 'Package'       },
-  '/serviceunits':    { title: 'service units',  badge: 'ServiceUnit'   },
-  '/deployments':     { title: 'deployments',    badge: 'Deployment'    },
-  '/gitrepositories': { title: 'git repositories', badge: 'GitRepository' },
-  '/githubevents':    { title: 'github events',  badge: 'GitHubEvent'   },
-  '/routes':          { title: 'routes',         badge: 'Route'         },
-  '/domains':         { title: 'domains',        badge: 'Domain'        },
-  '/supplychains':    { title: 'supply chains',  badge: 'SupplyChain'   },
-  '/githubwebhooks':  { title: 'github webhooks',badge: 'GitHubWebhook' },
+  '/':                { title: 'Home' },
+  '/dashboard':       { title: 'Dashboard' },
+  '/environments':    { title: 'Environments',   badge: 'Environment'   },
+  '/builds':          { title: 'Builds',         badge: 'Build'         },
+  '/packages':        { title: 'Packages',       badge: 'Package'       },
+  '/serviceunits':    { title: 'Service Units',  badge: 'ServiceUnit'   },
+  '/deployments':     { title: 'Deployments',    badge: 'Deployment'    },
+  '/gitrepositories': { title: 'Git Repositories', badge: 'GitRepository' },
+  '/githubevents':    { title: 'GitHub Events',  badge: 'GitHubEvent'   },
+  '/routes':          { title: 'Routes',         badge: 'Route'         },
+  '/domains':         { title: 'Domains',        badge: 'Domain'        },
+  '/supplychains':    { title: 'Supply Chains',  badge: 'SupplyChain'   },
+  '/githubwebhooks':  { title: 'GitHub Webhooks',badge: 'GitHubWebhook' },
+}
+
+const SIDEBAR_KEY = 'blanketops.sidebar'
+
+function loadCollapsed(): boolean {
+  try { return window.localStorage.getItem(SIDEBAR_KEY) === 'collapsed' } catch { return false }
 }
 
 export const Layout: FC<{ children: ReactNode }> = ({ children }) => {
   const location   = useLocation()
   const { health } = useConnectivity()
   const connected  = health?.connected ?? false
+  const [collapsed, setCollapsed] = useState(loadCollapsed)
+
+  useEffect(() => {
+    try { window.localStorage.setItem(SIDEBAR_KEY, collapsed ? 'collapsed' : 'expanded') } catch { /* page-only */ }
+  }, [collapsed])
 
   const base = '/' + location.pathname.split('/')[1]
-  const meta = ROUTE_META[base] ?? { title: 'dashboard' }
+  const meta = ROUTE_META[base] ?? { title: 'Dashboard' }
 
   return (
     <div className="app">
-      <Sidebar />
+      <Sidebar collapsed={collapsed} />
       <div className="main">
 
         <header className="topbar">
           <div className="topbar-left">
+            <button
+              type="button"
+              className="topbar-btn topbar-btn--square"
+              onClick={() => setCollapsed(c => !c)}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              aria-pressed={collapsed}
+            >
+              <i className={`ti ${collapsed ? 'ti-layout-sidebar-left-expand' : 'ti-layout-sidebar-left-collapse'}`} />
+            </button>
             <span className="topbar-title">{meta.title}</span>
             {meta.badge && <span className="kind-badge">{meta.badge}</span>}
           </div>
           <div className="topbar-right">
-            <span className={`watching-dot${connected ? ' watching-dot--live' : ''}`} />
-            <span className="watching-label">{connected ? 'watching' : 'reconnecting…'}</span>
+            <span className={`watch${connected ? ' watch--live' : ''}`}>
+              <span className={`watching-dot${connected ? ' watching-dot--live' : ''}`} />
+              <span className="watching-label">{connected ? 'watching' : 'reconnecting…'}</span>
+            </span>
+            <SkinMenu />
+            <ModeToggle />
           </div>
         </header>
 

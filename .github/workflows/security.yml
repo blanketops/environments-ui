@@ -1,0 +1,276 @@
+# =============================================================================
+# security.yml — Security & Vulnerability Scanning
+#
+# Four jobs, all report-only (none fails the build); findings render into
+# each job's summary:
+#
+#   npm-audit    — known vulnerabilities in the UI's npm dependency tree
+#                  (package-lock.json). Push to main/develop + pull_request
+#                  + weekly schedule.
+#   govulncheck  — reachable Go module + stdlib vulnerabilities in the API
+#                  server (server/). Same triggers as npm-audit.
+#   gosec        — Go static analysis of server/ (hardcoded creds, unsafe
+#                  crypto, injection). Push to main/develop + pull_request.
+#   trivy-image  — OS + library CVE scan of the published GHCR image. Only
+#                  meaningful once an image exists, so it runs on tag push
+#                  (same trigger as ko.yml) and on the weekly schedule,
+#                  scanning :latest there.
+#
+# No CodeQL job: the repository is private, and code-scanning uploads need
+# GitHub Advanced Security on a private repository.
+#
+# trivy-image's GHCR login uses GITHUB_TOKEN — scoped to this repository,
+# which is exactly what a same-repo package pull needs (an App installation
+# token was denied org package access in environments-controller).
+# =============================================================================
+
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+    tags:
+      - "v*"
+  schedule:
+    - cron: "0 6 * * 1" # npm-audit, govulncheck, trivy-image (:latest) — Monday 06:00 UTC
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  NODE_VERSION: "24"
+  IMAGE_REPO: ghcr.io/blanketops/environments-ui
+
+jobs:
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Job 1: npm audit
+  # ───────────────────────────────────────────────────────────────────────────
+  npm-audit:
+    name: npm audit
+    runs-on: self-hosted
+    timeout-minutes: 10
+    if: >
+      github.event_name == 'pull_request' ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'))
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Reads package-lock.json against the advisory database; no install
+      # needed. npm audit exits non-zero when it finds anything, which is
+      # the report, not a failure of this job.
+      - name: Run npm audit
+        run: npm audit --json > npm-audit.json || true
+
+      - name: npm audit Summary
+        if: always()
+        run: |
+          {
+            echo "# 📦 npm audit"
+            echo
+            echo "**Branch:** \`${{ github.ref_name }}\`"
+            echo "**Trigger:** \`${{ github.event_name }}\`"
+            echo
+            echo "Report-only — this job does not fail the build."
+            echo
+            if jq -e '.metadata.vulnerabilities' npm-audit.json >/dev/null 2>&1; then
+              echo "| Severity | Count |"
+              echo "|---|---|"
+              jq -r '.metadata.vulnerabilities | to_entries[] | select(.key != "total") | "| \(.key) | \(.value) |"' npm-audit.json
+              echo
+              if jq -e '.vulnerabilities | length > 0' npm-audit.json >/dev/null 2>&1; then
+                echo "| Package | Severity | Direct | Fix available |"
+                echo "|---|---|---|---|"
+                jq -r '.vulnerabilities | to_entries[] | .value | "| \(.name) | \(.severity) | \(.isDirect) | \(if .fixAvailable == false then "no" else "yes" end) |"' npm-audit.json
+              else
+                echo "No known vulnerabilities found."
+              fi
+            else
+              echo "npm audit produced no parsable report."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Job 2: govulncheck
+  # ───────────────────────────────────────────────────────────────────────────
+  govulncheck:
+    name: govulncheck
+    runs-on: self-hosted
+    timeout-minutes: 15
+    if: >
+      github.event_name == 'pull_request' ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'))
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: server/go.mod
+          cache: false
+
+      # JSON output always exits 0 (govulncheck's convention); the finding
+      # count is derived from the payload, not from an exit code.
+      - name: Run govulncheck
+        run: |
+          go run golang.org/x/vuln/cmd/govulncheck@latest -json ./... > govulncheck-report.json 2>govulncheck-stderr.txt || true
+
+      - name: Govulncheck Summary
+        if: always()
+        run: |
+          {
+            echo "# 🛡️ govulncheck"
+            echo
+            echo "**Branch:** \`${{ github.ref_name }}\`"
+            echo "**Trigger:** \`${{ github.event_name }}\`"
+            echo
+            echo "Report-only — this job does not fail the build."
+            echo
+            COUNT=$(jq -s '[.[] | select(.finding != null)] | length' govulncheck-report.json 2>/dev/null || echo 0)
+            if [[ "$COUNT" -gt 0 ]]; then
+              echo "| OSV ID | Module | Version | Fixed | Function |"
+              echo "|---|---|---|---|---|"
+              jq -s -r '.[] | select(.finding != null) | .finding |
+                {
+                  osv: .osv,
+                  module: ([.trace[]? | select(.module) | .module] | first // "-"),
+                  version: ([.trace[]? | select(.version) | .version] | first // "-"),
+                  fixed: (.fixed_version // "-"),
+                  function: ([.trace[]? | select(.function) | .function] | first // "-")
+                } | "| \(.osv) | \(.module) | \(.version) | \(.fixed) | \(.function) |"' \
+                govulncheck-report.json | sort -u
+            else
+              echo "No known vulnerabilities found."
+            fi
+            if [[ -s govulncheck-stderr.txt ]]; then
+              echo
+              echo "<details><summary>stderr</summary>"
+              echo
+              echo '```'
+              head -c 20000 govulncheck-stderr.txt
+              echo '```'
+              echo "</details>"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Job 3: gosec
+  # ───────────────────────────────────────────────────────────────────────────
+  gosec:
+    name: Gosec
+    runs-on: self-hosted
+    timeout-minutes: 15
+    if: >
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'))
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: server/go.mod
+          cache: false
+
+      - name: Run gosec
+        run: go run github.com/securego/gosec/v2/cmd/gosec@latest -fmt=json -out=gosec-report.json ./... || true
+
+      - name: Gosec Summary
+        if: always()
+        run: |
+          {
+            echo "# 🔒 Gosec Static Analysis"
+            echo
+            echo "**Branch:** \`${{ github.ref_name }}\`"
+            echo "**Trigger:** \`${{ github.event_name }}\`"
+            echo
+            echo "Report-only — this job does not fail the build."
+            echo
+            if jq -e '.Issues and (.Issues | length > 0)' gosec-report.json >/dev/null 2>&1; then
+              echo "| Severity | Confidence | Rule | Location | Details |"
+              echo "|---|---|---|---|---|"
+              jq -r '.Issues[] | "| \(.severity) | \(.confidence) | \(.rule_id) | \(.file | sub(".*/server/"; "server/")):\(.line) | \(.details | gsub("\\|"; "\\\\|")) |"' gosec-report.json
+            else
+              echo "No findings."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Job 4: trivy-image
+  # ───────────────────────────────────────────────────────────────────────────
+  trivy-image:
+    name: Trivy Image Scan
+    runs-on: self-hosted
+    timeout-minutes: 15
+    if: github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Compute image ref
+        id: image
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "ref=${{ env.IMAGE_REPO }}:${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ env.IMAGE_REPO }}:latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Trivy image scan
+        id: trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        continue-on-error: true
+        with:
+          image-ref: ${{ steps.image.outputs.ref }}
+          format: template
+          template: "@/contrib/markdown.tpl"
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: "0"
+          output: trivy-report.md
+
+      - name: Trivy Summary
+        if: always()
+        run: |
+          {
+            echo "# 🐳 Trivy Image Scan"
+            echo
+            echo "**Image:** \`${{ steps.image.outputs.ref }}\`"
+            echo "**Trigger:** \`${{ github.event_name }}\`"
+            echo
+            echo "Report-only — this job does not fail the build."
+            echo
+            if [[ "${{ steps.trivy.outcome }}" != "success" ]]; then
+              echo "Scan did not complete (outcome: \`${{ steps.trivy.outcome }}\`) — see the step log. The tag's image may not be pushed yet."
+            elif [[ -s trivy-report.md ]]; then
+              head -c 100000 trivy-report.md
+            else
+              echo "No findings."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

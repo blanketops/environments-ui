@@ -5,21 +5,19 @@ interface Props { events: CREvent[] }
 
 export const EventsPanel: FC<Props> = ({ events }) => {
   if (!events.length)
-    return <p className="text-sm text-zinc-500 py-4">No events emitted.</p>
+    return <p className="panel-empty">No events emitted.</p>
 
   return (
-    <div className="divide-y divide-zinc-800">
+    <div className="stack">
       {events.map((ev, i) => (
-        <div key={i} className="py-3">
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`text-[10px] font-mono border rounded px-1.5 py-0.5 ${ev.type === 'Warning' ? 'text-red-400 bg-red-400/10 border-red-400/20' : 'text-lime-400 bg-lime-400/10 border-lime-400/20'}`}>
-              {ev.type}
-            </span>
-            <span className="text-xs font-semibold text-zinc-200">{ev.reason}</span>
-            <span className="text-[10px] text-zinc-500 ml-auto">×{ev.count}</span>
+        <div key={i} className="info-card">
+          <div className="info-card-hdr">
+            <span className={`status-pill ${ev.type === 'Warning' ? 'status-pill--bad' : 'status-pill--ok'}`}>{ev.type}</span>
+            <span className="info-card-title">{ev.reason}</span>
+            <span className="info-card-meta">×{ev.count}</span>
           </div>
-          <p className="text-xs text-zinc-400 leading-relaxed">{ev.message}</p>
-          <p className="text-[10px] text-zinc-600 mt-1 font-mono">{ev.lastTime}</p>
+          <p className="info-card-msg">{ev.message}</p>
+          <p className="info-card-time">{ev.lastTime}</p>
         </div>
       ))}
     </div>

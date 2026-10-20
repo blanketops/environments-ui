@@ -144,7 +144,7 @@ const QUICK_ACTIONS = [
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export const Dashboard: FC = () => (
-  <div>
+  <div className="dashboard">
     <div className="section-title">HEALTH</div>
     <div className="health-grid">
       {HEALTH_KINDS.map(h => <HealthCard key={h.kind} {...h} />)}
@@ -157,7 +157,7 @@ export const Dashboard: FC = () => (
           <i className="ti ti-box" style={{ color: 'var(--text2)' }} />
           <span className="env-name-label">{env.name}</span>
           <span className="tag tag-blue">{env.type}</span>
-          <span style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>store:{env.store}</span>
+          <span className="pipeline-meta">store:{env.store}</span>
         </div>
         <div className="pipeline-track-label">BUILD CHAIN</div>
         <PipelineStages stages={env.build} />

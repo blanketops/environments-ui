@@ -1,11 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-skin="tailadmin">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BlanketOps Environments</title>
+    <!-- Apply the stored skin before first paint (mirrors applySkin in src/skins/skins.ts). -->
+    <script>
+      (function () {
+        try {
+          var skin = localStorage.getItem('blanketops.skin');
+          var mode = localStorage.getItem('blanketops.mode');
+          if (skin !== 'tailadmin' && skin !== 'terminal') skin = 'tailadmin';
+          if (mode !== 'light' && mode !== 'dark') mode = 'light';
+          if (skin === 'terminal') mode = 'dark';
+          var root = document.documentElement;
+          root.setAttribute('data-skin', skin);
+          if (mode === 'dark') root.classList.add('dark');
+          root.style.colorScheme = mode;
+        } catch (e) { /* storage unavailable: the markup defaults apply */ }
+      })();
+    </script>
+    <link rel="icon" href="/favicon.ico" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
   </head>
   <body>

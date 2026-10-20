@@ -58,7 +58,11 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          # npm's download cache lives on the runners' persistent cache volume
+          # (npm_config_cache, set by the runner pool). setup-node's own cache
+          # would upload that shared directory to the Actions cache after every
+          # job, so it stays off.
+          package-manager-cache: false
 
       - name: Install dependencies
         run: npm ci
@@ -81,8 +85,10 @@ jobs:
           go-version-file: server/go.mod
           cache: false
 
-      - name: Setup ko
-        uses: ko-build/setup-ko@v0.10
+      # ko is baked into the runner image (zenith-runner-toolchain 1.0.11+);
+      # setup-ko downloaded it on every job over a slow link.
+      - name: Check ko
+        run: ko version
 
       - name: Login to GHCR
         run: |

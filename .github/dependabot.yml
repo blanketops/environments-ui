@@ -1,0 +1,61 @@
+# =============================================================================
+# dependabot.yml
+#
+# Three ecosystems, all targeting develop like every other pull request in
+# this repository's branch flow (release branches are cut from develop):
+#   npm            — the React UI at the repository root.
+#   gomod          — the API server in server/ (its own Go module).
+#   github-actions — keeps action versions pinned to real, resolvable tags.
+# =============================================================================
+
+version: 2
+
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      npm-dependencies:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "gomod"
+    directory: "/server"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      go-dependencies:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - "dependencies"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore(ci)"
+    labels:
+      - "dependencies"
+      - "ci"
+    open-pull-requests-limit: 10

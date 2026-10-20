@@ -21,6 +21,13 @@ updates:
       npm-dependencies:
         patterns:
           - "*"
+    # Tailwind 4 drops the PostCSS plugin and changes utility defaults
+    # (border colour, ring width, shadow/radius scale); moving to it is its
+    # own change with a check of the skins in a browser, not a grouped bump.
+    # Minor and patch updates of 3.x still come through.
+    ignore:
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(deps)"
     labels:

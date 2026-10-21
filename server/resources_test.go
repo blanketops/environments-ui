@@ -160,7 +160,7 @@ func TestEveryInstalledKindRoundTrips(t *testing.T) {
 
 			// The patch replaces the contract (replicas is dropped) and
 			// merges labels.
-			rec, got = do(t, h, http.MethodPatch, item, map[string]any{
+			rec, _ = do(t, h, http.MethodPatch, item, map[string]any{
 				"metadata": map[string]any{"labels": map[string]string{"owner": "neo"}},
 				"spec":     map[string]any{"image": "app:2"},
 			})

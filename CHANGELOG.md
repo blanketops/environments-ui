@@ -1,3 +1,24 @@
+## [0.0.2] - 2026-10-21
+
+### 🐛 Bug Fixes
+
+- Use the verbatim Apache-2.0 license text
+
+### 💼 Other
+
+- Merge release/v0.0.2 into main
+
+### 🧪 Testing
+
+- *(server)* Drop an unused PATCH response in the round-trip test
+
+### ⚙️ Miscellaneous Tasks
+
+- Sync develop with main after release/v0.0.1
+- *(dependabot)* Open dependency PRs against main
+- Sync develop with main
+- Land bot writes to main through pull requests
+- Sync develop with main
 ## [0.0.1] - 2026-10-21
 
 ### 🚀 Features
@@ -48,3 +69,4 @@
 - *(security)* Keep Trivy's vulnerability DB on the runners' cache volume
 - Use the runner image's baked tools instead of per-job installs
 - *(release)* Use the runner image's git-cliff instead of downloading it
+- *(release)* Update changelog for v0.0.1

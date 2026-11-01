@@ -1,3 +1,14 @@
+## [0.0.4] - 2026-11-01
+
+### 🚜 Refactor
+
+- Remove Go server, ko, switch to Docker for UI
+- Remove Go security jobs (govulncheck, gosec)
+
+### ⚙️ Miscellaneous Tasks
+
+- Sync develop with main after release/v0.0.3
+- *(ko)* Add id-token and attestations permissions for SBOM push
 ## [0.0.3] - 2026-11-01
 
 ### 💼 Other
@@ -13,6 +24,7 @@
 - Sync develop with main
 - *(release)* Update changelog for v0.0.3 (#36)
 - Sync develop with main after release/v0.0.3
+- *(release)* Update changelog for v0.0.3 (#38)
 ## [0.0.2] - 2026-10-21
 
 ### 🐛 Bug Fixes

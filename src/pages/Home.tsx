@@ -37,6 +37,14 @@ const RESOURCE_GROUPS = [
       { icon: 'ti-plug-connected', kind: 'GitHubWebhook', to: '/githubwebhooks/new', desc: 'GitHub webhook registration for supply chain' },
     ],
   },
+  {
+    title: 'DEPENDENCIES',
+    items: [
+      { icon: 'ti-database',   kind: 'ExternalSecret',     to: '/dependencies/new',  desc: 'ExternalSecret — sync secrets from Vault/AWS/GCP/Azure' },
+      { icon: 'ti-database',   kind: 'ClusterSecretStore', to: '/dependencies/new',  desc: 'ClusterSecretStore — configure secret backend connection' },
+      { icon: 'ti-database',   kind: 'SecretStore',        to: '/dependencies/new',  desc: 'SecretStore — namespace-scoped secret backend' },
+    ],
+  },
 ]
 
 // ── Environment summary ────────────────────────────────────────────────────

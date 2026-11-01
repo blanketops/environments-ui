@@ -1,8 +1,11 @@
 # =============================================================================
-# docker.yml — UI Docker Image Build → GHCR
+# docker.yml — UI Container Image Build → GHCR (via Kaniko)
 #
-# Builds the UI (vite → dist/), builds a Docker image, and pushes to GHCR.
-# Fires on tag push and manual dispatch.
+# Builds the UI (vite → dist/), builds a container image via Kaniko,
+# and pushes to GHCR. Fires on tag push and manual dispatch.
+#
+# No Docker daemon required — uses Kaniko (no Docker daemon needed).
+# Runs on self-hosted runners (pods without Docker daemon).
 #
 # Registry: ghcr.io/blanketops/environments-ui
 #
@@ -48,7 +51,6 @@ jobs:
       - name: Build UI
         run: npm run build
 
-      # Build and push Docker image
       - name: Compute image tags
         id: tags
         run: |
@@ -60,38 +62,36 @@ jobs:
 
       - name: Login to GHCR
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
+          echo "${{ secrets.GITHUB_TOKEN }}" | crane auth login ghcr.io \
             --username "${{ github.actor }}" \
             --password-stdin
 
-      - name: Install Kaniko
-        run: |
-          curl -sSL https://github.com/GoogleContainerTools/kaniko/releases/download/v1.23.0/kaniko-linux-amd64.tar.gz | tar -xz -C /usr/local/bin
-
-      - name: Build and push image
+      - name: Build and push image (Kaniko)
         id: kaniko-build
         env:
           IMAGE_REPO: ${{ env.IMAGE_REPO }}
         run: |
-          kaniko --cache=true \
+          /kaniko/executor \
+            --cache=true \
             --destination="${{ env.IMAGE_REPO }}:${{ steps.tags.outputs.tags }}" \
             --cache-dir=/cache/kaniko \
             --context=. \
-            --digest-file=/workspace/kaniko-image-digest
+            --digest-file=/workspace/kaniko-image-digest \
+            --verbosity=info
           echo "digest=$(cat /workspace/kaniko-image-digest)" >> "$GITHUB_OUTPUT"
 
       - name: Summary
         if: always()
         run: |
           cat >> "$GITHUB_STEP_SUMMARY" <<EOF
-          # 🐳 Docker Image Build
+          # 🐹 Kaniko Image Build
 
           **Image:** \`${{ env.IMAGE_REPO }}\`
           **Tags:** \`${{ steps.tags.outputs.tags }}\`
-          **Digest:** \`${{ steps.docker-build.outputs.digest || 'not built' }}\`
+          **Digest:** \`${{ steps.kaniko-build.outputs.digest || 'not built' }}\`
 
           ## Pull
-          \`docker pull ${{ env.IMAGE_REPO }}@${{ steps.docker-build.outputs.digest }}\`
+          \`docker pull ${{ env.IMAGE_REPO }}@${{ steps.kaniko-build.outputs.digest }}\`
 
           ## Run
           Serves the UI on port 80; static files served by nginx.

@@ -10,6 +10,9 @@ import { PackageList }        from './pages/environments/PackageList'
 import { ServiceUnitList }    from './pages/environments/ServiceUnitList'
 import { DeploymentList }     from './pages/environments/DeploymentList'
 
+// Dependencies
+import { DependenciesList }   from './pages/dependencies/DependenciesList'
+
 // Sources
 import { GitRepositoryList }  from './pages/sources/GitRepositoryList'
 
@@ -64,6 +67,10 @@ export default function App() {
           <Route path="/routes/new"         element={<RouteForm />} />
           <Route path="/domains"            element={<DomainList />} />
           <Route path="/domains/new"        element={<DomainForm />} />
+
+          {/* Dependencies */}
+          <Route path="/dependencies"         element={<DependenciesList />} />
+          <Route path="/dependencies/new"     element={<div>DependenciesForm - coming soon</div>} />
 
           {/* Sources */}
           <Route path="/gitrepositories"      element={<GitRepositoryList />} />

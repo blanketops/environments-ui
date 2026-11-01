@@ -1,5 +1,9 @@
 ## [0.0.3] - 2026-11-01
 
+### 💼 Other
+
+- Merge release/v0.0.3 into main
+
 ### ⚙️ Miscellaneous Tasks
 
 - *(finalize)* Continue when the release pull request is already merged
@@ -7,6 +11,8 @@
 - *(ci)* Bump blanketops/environments-bots
 - Sync develop with main after release/v0.0.2
 - Sync develop with main
+- *(release)* Update changelog for v0.0.3 (#36)
+- Sync develop with main after release/v0.0.3
 ## [0.0.2] - 2026-10-21
 
 ### 🐛 Bug Fixes

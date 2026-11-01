@@ -1,0 +1,94 @@
+# =============================================================================
+# docker.yml — UI Docker Image Build → GHCR
+#
+# Builds the UI (vite → dist/), builds a Docker image, and pushes to GHCR.
+# Fires on tag push and manual dispatch.
+#
+# Registry: ghcr.io/blanketops/environments-ui
+#
+# Image tagging:
+#   tag push  → {version} + latest
+#   manual    → {ref_name} only
+# =============================================================================
+
+name: Docker Image
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  NODE_VERSION: "24"
+  IMAGE_REPO: ghcr.io/blanketops/environments-ui
+
+jobs:
+  build-and-publish:
+    name: Build and Publish
+    runs-on: self-hosted
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build UI
+        run: npm run build
+
+      # Build and push Docker image
+      - name: Compute image tags
+        id: tags
+        run: |
+          TAGS="${{ github.ref_name }}"
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAGS="${TAGS},latest"
+          fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
+            --username "${{ github.actor }}" \
+            --password-stdin
+
+      - name: Build and push image
+        id: docker-build
+        env:
+          IMAGE_REPO: ${{ env.IMAGE_REPO }}
+        run: |
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --tag "${{ steps.tags.outputs.tags }}" \
+            --push \
+            .
+          echo "digest=$(docker buildx imagetools inspect ${{ env.IMAGE_REPO }}:${{ github.ref_name }} --format '{{json .Manifest.Digest}}' | jq -r '.')" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        if: always()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          # 🐳 Docker Image Build
+
+          **Image:** \`${{ env.IMAGE_REPO }}\`
+          **Tags:** \`${{ steps.tags.outputs.tags }}\`
+          **Digest:** \`${{ steps.docker-build.outputs.digest || 'not built' }}\`
+
+          ## Pull
+          \`docker pull ${{ env.IMAGE_REPO }}@${{ steps.docker-build.outputs.digest }}\`
+
+          ## Run
+          Serves the UI on port 80; static files served by nginx.
+          EOF

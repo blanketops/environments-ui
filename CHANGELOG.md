@@ -1,3 +1,12 @@
+## [0.0.3] - 2026-11-01
+
+### ⚙️ Miscellaneous Tasks
+
+- *(finalize)* Continue when the release pull request is already merged
+- Run the releaser in the release workflows
+- *(ci)* Bump blanketops/environments-bots
+- Sync develop with main after release/v0.0.2
+- Sync develop with main
 ## [0.0.2] - 2026-10-21
 
 ### 🐛 Bug Fixes
@@ -19,6 +28,7 @@
 - Sync develop with main
 - Land bot writes to main through pull requests
 - Sync develop with main
+- *(release)* Update changelog for v0.0.2 (#28)
 ## [0.0.1] - 2026-10-21
 
 ### 🚀 Features

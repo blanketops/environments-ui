@@ -42,6 +42,11 @@ const NAV: Section[] = [
       { label: 'GitHub Webhook', to: '/githubwebhooks', icon: 'ti-plug-connected' },
     ],
   },
+  {
+    title: 'DEPENDENCIES', items: [
+      { label: 'Dependencies', to: '/dependencies', icon: 'ti-database' },
+    ],
+  },
 ]
 
 export const Sidebar: FC<{ collapsed?: boolean }> = ({ collapsed = false }) => (

@@ -1,16 +1,12 @@
 # =============================================================================
 # ci.yml — BlanketOps Environments UI CI
 #
-# Three-job pipeline:
+# Two-job pipeline:
 #   0. changes  — lists the files a push or pull request changed and reports
-#                 whether any of them is not documentation. ui and server
-#                 skip when none is.
+#                 whether any of them is not documentation. ui job skips
+#                 when none is.
 #   1. ui       — the React app at the repository root: npm ci, typecheck
 #                 (tsc), unit tests (vitest), production build (vite).
-#   2. server   — the Go API server in server/ (its own module): gofmt,
-#                 build, vet, golangci-lint, tests with coverage. ko.yml ships
-#                 this binary with the built UI as kodata, so a compile error
-#                 is caught here instead of at tag time.
 #
 # Docs-only changes:
 #   Skipping is done per job, through the `changes` job's output, and not
@@ -21,13 +17,10 @@
 #   `!cancelled()`, so if `changes` fails or yields no output the jobs run.
 #
 # Versions:
-#   Go is read from server/go.mod at runtime; Node is pinned to the same
-#   major the other Node repos in the family use (environments-docs).
+#   Node is pinned to the same major the other Node repos in the family use.
 #
 # Auth:
-#   No secrets. The server's only BlanketOps module dependency resolves
-#   through the public module proxy, so these jobs also run on Dependabot
-#   pull requests.
+#   No secrets. All dependencies resolve through the public module proxy.
 # =============================================================================
 
 name: CI
@@ -41,7 +34,6 @@ permissions:
 
 env:
   NODE_VERSION: "24"
-  GOFLAGS: -mod=readonly
 
 jobs:
 
@@ -109,7 +101,7 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          RESULT="${{ steps.detect.outputs.code == 'false' && 'Documentation only — ui and server jobs are skipped' || 'Code changed — full pipeline runs' }}"
+          RESULT="${{ steps.detect.outputs.code == 'false' && 'Documentation only — ui job is skipped' || 'Code changed — full pipeline runs' }}"
           cat >> "$GITHUB_STEP_SUMMARY" <<EOF
           # Change Detection
 

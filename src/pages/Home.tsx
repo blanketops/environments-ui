@@ -38,11 +38,19 @@ const RESOURCE_GROUPS = [
     ],
   },
   {
-    title: 'DEPENDENCIES',
+    title: 'PLATFORM DEPENDENCIES',
     items: [
-      { icon: 'ti-database',   kind: 'ExternalSecret',     to: '/dependencies/new',  desc: 'ExternalSecret — sync secrets from Vault/AWS/GCP/Azure' },
-      { icon: 'ti-database',   kind: 'ClusterSecretStore', to: '/dependencies/new',  desc: 'ClusterSecretStore — configure secret backend connection' },
-      { icon: 'ti-database',   kind: 'SecretStore',        to: '/dependencies/new',  desc: 'SecretStore — namespace-scoped secret backend' },
+      { icon: 'ti-box',           kind: 'carvel',          to: '/dependencies/new',  desc: 'Carvel Kapp Controller — packaging and lifecycle management' },
+      { icon: 'ti-webhook',       kind: 'argoevents',      to: '/dependencies/new',  desc: 'Argo Events — event-driven pipelines' },
+      { icon: 'ti-package',       kind: 'tekton-pipelines', to: '/dependencies/new', desc: 'Tekton Pipelines — CI/CD execution engine' },
+      { icon: 'ti-layout-dashboard', kind: 'tekton-dashboard', to: '/dependencies/new', desc: 'Tekton Dashboard — pipeline UI' },
+      { icon: 'ti-package',       kind: 'shipwright',      to: '/dependencies/new', desc: 'Shipwright Build — Kubernetes-native image builds' },
+      { icon: 'ti-server',        kind: 'crossplane',      to: '/dependencies/new', desc: 'Crossplane — infrastructure orchestration' },
+      { icon: 'ti-shield',        kind: 'externalsecrets', to: '/dependencies/new', desc: 'External Secrets Operator — secure secret integration' },
+      { icon: 'ti-shield-check',  kind: 'buildstrategies', to: '/dependencies/new', desc: 'Shipwright build strategies (buildpacks, kaniko, buildah)' },
+      { icon: 'ti-git-branch',    kind: 'flux',            to: '/dependencies/new', desc: 'Flux UI + config' },
+      { icon: 'ti-shield',        kind: 'knative',         to: '/dependencies/new', desc: 'Knative Serving — serverless workload runtime' },
+      { icon: 'ti-route',         kind: 'kourier',         to: '/dependencies/new', desc: 'Kourier — Knative ingress/networking layer' },
     ],
   },
 ]

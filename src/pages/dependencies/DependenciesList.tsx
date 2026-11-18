@@ -96,21 +96,25 @@ export const DependenciesList: FC = () => {
       </div>
 
       <div className="bl-table-wrap">
-        <div className="bl-th">
-          <th className="bl-td--center"></th>
-          <th>NAME</th>
-          <th>NAMESPACE</th>
-          <th>KIND</th>
-          <th>PHASE</th>
-          <th></th>
-        </div>
-        <tbody>
-          {data.length === 0 ? (
-            <tr><td colSpan={6} className="bl-placeholder">no dependencies yet</td></tr>
-          ) : (
-            data.map(dep => <DepRow key={dep.name} dep={dep} />)
-          )}
-        </tbody>
+        <table className="bl-table">
+          <thead>
+            <tr className="bl-th">
+              <th className="bl-td--center"></th>
+              <th>NAME</th>
+              <th>NAMESPACE</th>
+              <th>KIND</th>
+              <th>PHASE</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.length === 0 ? (
+              <tr><td colSpan={6} className="bl-placeholder">no dependencies yet</td></tr>
+            ) : (
+              data.map(dep => <DepRow key={dep.name} dep={dep} />)
+            )}
+          </tbody>
+        </table>
       </div>
 
       <div className="bl-placeholder">

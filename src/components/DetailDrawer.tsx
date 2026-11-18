@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, type FC } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { CRStatus } from '../types'
 import { toYaml } from './YamlBlock'
-import { KIND_GROUP, KIND_SINGULAR } from '../types'
+import { KIND_GROUP, KIND_SINGULAR, phaseClass } from '../types'
 import type { Kind } from '../types'
 
 // item.kind is the PascalCase CRD kind from the Kubernetes API ('Build', 'Environment', …)
@@ -73,8 +73,9 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete }) => {
   if (!item) return null
 
   const specFields = flattenSpec(item.spec)
-  const phaseLower = item.phase.toLowerCase()
-  const isActive   = item.phase === 'Running' || item.phase === 'Failed'
+  const phasePc   = phaseClass(item.phase)
+  const phaseLower = phasePc.toLowerCase()
+  const isActive   = phasePc === 'Running' || phasePc === 'Failed'
 
   // item.kind is PascalCase ('Build') — use string, not Kind type
   const kindKey    = item.kind                   // 'Build'

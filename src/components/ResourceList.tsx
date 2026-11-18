@@ -1,6 +1,7 @@
 import type { FC } from 'react'
 import { Link } from 'react-router-dom'
 import type { CRStatus } from '../types'
+import { phaseClass } from '../types'
 
 function computeAge(item: CRStatus): string {
   const conds = item.conditions ?? []
@@ -20,6 +21,14 @@ export interface SubItem {
   variant?: SubVariant
 }
 
+function TagEl({ item }: { item: SubItem }) {
+  if (!item.variant || item.variant === 'text') {
+    return <span className="row-sub-item">{item.value}</span>
+  }
+  const cls = item.variant === 'tag' ? 'tag tag-blue' : `tag tag-${item.variant.replace('tag-', '')}`
+  return <span className={cls}>{item.value}</span>
+}
+
 interface Props {
   title: string
   items: CRStatus[]
@@ -29,14 +38,6 @@ interface Props {
   selected: CRStatus | null
   onSelect: (item: CRStatus) => void
   getSubItems?: (item: CRStatus) => SubItem[]
-}
-
-function TagEl({ item }: { item: SubItem }) {
-  if (!item.variant || item.variant === 'text') {
-    return <span className="row-sub-item">{item.value}</span>
-  }
-  const cls = item.variant === 'tag' ? 'tag tag-blue' : `tag tag-${item.variant.replace('tag-', '')}`
-  return <span className={cls}>{item.value}</span>
 }
 
 export const ResourceList: FC<Props> = ({
@@ -54,8 +55,6 @@ export const ResourceList: FC<Props> = ({
       <div className="loading-state list-error"><i className="ti ti-alert-circle" />Error: {error}</div>
     </div>
   )
-
-  const phaseLower = (phase: string) => phase.toLowerCase()
 
   return (
     <div className="card">
@@ -80,7 +79,8 @@ export const ResourceList: FC<Props> = ({
         items.map(item => {
           const isSel = selected?.name === item.name
           const sub   = getSubItems?.(item) ?? []
-          const phase = phaseLower(item.phase)
+          const phasePc = phaseClass(item.phase)
+          const phase   = phasePc.toLowerCase()
           return (
             <div
               key={item.name}
@@ -97,7 +97,7 @@ export const ResourceList: FC<Props> = ({
                 )}
               </div>
               <span className="row-age">{computeAge(item)}</span>
-              <span className={`badge badge-${phase}`}>{phase}</span>
+              <span className={`badge badge-${phase}`}>{phasePc}</span>
               <i className="ti ti-chevron-right row-chevron" />
             </div>
           )

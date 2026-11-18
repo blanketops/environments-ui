@@ -64,6 +64,19 @@ export type PatchBody = Record<string, unknown>
 
 export type Phase = 'Ready' | 'Running' | 'Pending' | 'Failed' | 'Unknown'
 
+// ── Phase normalization ───────────────────────────────────────────────
+// The controller emits phases like ENVIRONMENT_PHASE_READY /
+// ENVIRONMENT_PHASE_PENDING. Map any phase string to one of the 4
+// UI-friendly values used by badge/dot CSS classes.
+export function phaseClass(phase: string): 'Ready' | 'Running' | 'Pending' | 'Failed' | 'Unknown' {
+  const p = phase.toLowerCase()
+  if (p.includes('ready') || p.includes('succeeded')) return 'Ready'
+  if (p.includes('run') || p.includes('progressing')) return 'Running'
+  if (p.includes('pending') || p.includes('provisioning')) return 'Pending'
+  if (p.includes('fail')) return 'Failed'
+  return 'Unknown'
+}
+
 export const ALL_KINDS = [
   'environments',
   'builds',

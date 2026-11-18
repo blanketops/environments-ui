@@ -10,7 +10,12 @@ export const EnvironmentForm: FC = () => {
   const nav = useNavigate()
   const [name,     setName]     = useState('')
   const [namespace,setNs]       = useState('blanketops-environments')
-  const [provider, setProvider] = useState('aws')
+  const [appName,  setAppName]  = useState('')
+  const [envType,  setEnvType]  = useState('PRODUCTION')
+  const [version,  setVersion]  = useState('')
+  const [branch,   setBranch]   = useState('main')
+  const [gitOwner, setGitOwner] = useState('')
+  const [provider, setProvider] = useState('vault')
   const [ssName,   setSsName]   = useState('')
   const [labels,   setLabels]   = useState<string[]>([])
   const [error,    setError]    = useState<string | null>(null)
@@ -18,6 +23,11 @@ export const EnvironmentForm: FC = () => {
 
   const spec = {
     contract: {
+      applicationName: appName,
+      environmentType: envType,
+      version: version,
+      branch: branch,
+      gitOwner: gitOwner,
       secretStore: { name: ssName || undefined, provider },
     },
   }
@@ -53,6 +63,21 @@ export const EnvironmentForm: FC = () => {
           </Field>
           <Field label="namespace" required>
             <Input value={namespace} onChange={e => setNs(e.target.value)} />
+          </Field>
+          <Field label="applicationName" required>
+            <Input value={appName} onChange={e => setAppName(e.target.value)} placeholder="payment-api" required />
+          </Field>
+          <Field label="environmentType" required>
+            <Input value={envType} onChange={e => setEnvType(e.target.value)} placeholder="PRODUCTION" required />
+          </Field>
+          <Field label="version" required>
+            <Input value={version} onChange={e => setVersion(e.target.value)} placeholder="1.0.0" required />
+          </Field>
+          <Field label="branch" required>
+            <Input value={branch} onChange={e => setBranch(e.target.value)} placeholder="main" required />
+          </Field>
+          <Field label="gitOwner" required>
+            <Input value={gitOwner} onChange={e => setGitOwner(e.target.value)} placeholder="blanketops" required />
           </Field>
           <Field label="labels" hint="key=value pairs — press Enter to add">
             <TagInput value={labels} onChange={setLabels} placeholder="env=production" />

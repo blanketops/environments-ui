@@ -5,6 +5,7 @@ import { DetailDrawer } from '../../components/DetailDrawer'
 import type { CRStatus } from '../../types'
 
 const KIND = 'environments'
+const DEFAULT_NS = 'blanketops-environments'
 
 function getSubItems(item: CRStatus) {
   const spec = item.spec as Record<string, unknown> ?? {}
@@ -19,12 +20,12 @@ function getSubItems(item: CRStatus) {
 }
 
 export const EnvironmentList: FC = () => {
-  const { data, loading, error, refetch } = useList(KIND)
+  const { data, loading, error, refetch } = useList(KIND, DEFAULT_NS)
   const [selected, setSelected] = useState<CRStatus | null>(null)
 
   const handleDelete = async (name: string) => {
     const { deleteResource } = await import('../../api/client')
-    await deleteResource(KIND, 'blanketops-environments', name)
+    await deleteResource(KIND, DEFAULT_NS, name)
     setSelected(null)
     refetch()
   }

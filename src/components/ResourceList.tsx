@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import type { CRStatus } from '../types'
 
 function computeAge(item: CRStatus): string {
-  const t = item.conditions[0]?.lastTransitionTime
+  const conds = item.conditions ?? []
+  const t = conds[0]?.lastTransitionTime
   if (!t) return '—'
   const diff = Date.now() - new Date(t).getTime()
   if (diff < 60_000)      return `${Math.floor(diff / 1000)}s`

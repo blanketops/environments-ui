@@ -37,22 +37,6 @@ const RESOURCE_GROUPS = [
       { icon: 'ti-plug-connected', kind: 'GitHubWebhook', to: '/githubwebhooks/new', desc: 'GitHub webhook registration for supply chain' },
     ],
   },
-  {
-    title: 'PLATFORM DEPENDENCIES',
-    items: [
-      { icon: 'ti-box',           kind: 'carvel',          to: '/dependencies/new',  desc: 'Carvel Kapp Controller — packaging and lifecycle management' },
-      { icon: 'ti-webhook',       kind: 'argoevents',      to: '/dependencies/new',  desc: 'Argo Events — event-driven pipelines' },
-      { icon: 'ti-package',       kind: 'tekton-pipelines', to: '/dependencies/new', desc: 'Tekton Pipelines — CI/CD execution engine' },
-      { icon: 'ti-layout-dashboard', kind: 'tekton-dashboard', to: '/dependencies/new', desc: 'Tekton Dashboard — pipeline UI' },
-      { icon: 'ti-package',       kind: 'shipwright',      to: '/dependencies/new', desc: 'Shipwright Build — Kubernetes-native image builds' },
-      { icon: 'ti-server',        kind: 'crossplane',      to: '/dependencies/new', desc: 'Crossplane — infrastructure orchestration' },
-      { icon: 'ti-shield',        kind: 'externalsecrets', to: '/dependencies/new', desc: 'External Secrets Operator — secure secret integration' },
-      { icon: 'ti-shield-check',  kind: 'buildstrategies', to: '/dependencies/new', desc: 'Shipwright build strategies (buildpacks, kaniko, buildah)' },
-      { icon: 'ti-git-branch',    kind: 'flux',            to: '/dependencies/new', desc: 'Flux UI + config' },
-      { icon: 'ti-shield',        kind: 'knative',         to: '/dependencies/new', desc: 'Knative Serving — serverless workload runtime' },
-      { icon: 'ti-route',         kind: 'kourier',         to: '/dependencies/new', desc: 'Kourier — Knative ingress/networking layer' },
-    ],
-  },
 ]
 
 // ── Environment summary ────────────────────────────────────────────────────
@@ -134,6 +118,8 @@ export const Home: FC = () => (
     </div>
 
     <EnvironmentSection />
+
+    {/* <DependenciesSection /> */}
 
     {RESOURCE_GROUPS.map(group => (
       <div key={group.title} className="home-resource-group">

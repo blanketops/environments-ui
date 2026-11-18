@@ -11,8 +11,7 @@ import { ServiceUnitList }    from './pages/environments/ServiceUnitList'
 import { DeploymentList }     from './pages/environments/DeploymentList'
 
 // Dependencies
-import { DependenciesList }   from './pages/dependencies/DependenciesList'
-import { DependenciesForm }   from './forms/DependenciesForm'
+import { DependenciesList } from "./pages/dependencies/DependenciesList"
 
 // Sources
 import { GitRepositoryList }  from './pages/sources/GitRepositoryList'
@@ -71,7 +70,6 @@ export default function App() {
 
           {/* Dependencies */}
           <Route path="/dependencies"         element={<DependenciesList />} />
-          <Route path="/dependencies/new"     element={<DependenciesForm />} />
           <Route path="/dependencies/:name"   element={<DependenciesList />} />
 
           {/* Sources */}

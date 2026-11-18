@@ -31,13 +31,14 @@ interface Props {
   onDelete?: (name: string) => void
 }
 
-const TABS = ['spec', 'yaml', 'conditions'] as const
+const TABS = ['spec', 'yaml', 'conditions', 'events'] as const
 type Tab = typeof TABS[number]
 
 const TAB_ICONS: Record<Tab, string> = {
   spec:       'ti-list',
   yaml:       'ti-code',
   conditions: 'ti-checks',
+  events:     'ti-bell',
 }
 
 function flattenSpec(spec: unknown, prefix = ''): [string, string][] {
@@ -56,6 +57,7 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete }) => {
   const [tab,           setTab]    = useState<Tab>('spec')
   const [copied,        setCopied] = useState(false)
   const [confirmDelete, setConfirm]= useState(false)
+  const [collapsed,     setCollapsed] = useState(false)
 
   if (!item) return null
 
@@ -90,127 +92,153 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete }) => {
   }
 
   const handleClose = () => { onClose(); setConfirm(false) }
+  const handleToggleCollapse = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setCollapsed(c => !c)
+  }
+
+  const panelClass = `detail-panel${collapsed ? ' collapsed' : ' open'}`
 
   return (
-    <div className="detail-panel open">
-      {/* Header */}
-      <div className="detail-hdr">
+    <div className={panelClass}>
+      {/* Header — always visible */}
+      <div className="detail-hdr" onClick={handleToggleCollapse}>
         <div className="detail-hdr-left">
           <span className="detail-name">{item.name}</span>
           <span className={`badge badge-${phaseLower}`}>{phaseLower}</span>
+          <i className={`ti ti-chevron-down collapse-toggle${collapsed ? ' rotated' : ''}`} />
         </div>
-        <button type="button" className="btn" aria-label="Close" onClick={handleClose}>
+        <button type="button" className="btn" aria-label="Close" onClick={(e) => { e.stopPropagation(); handleClose() }}>
           <i className="ti ti-x" />
         </button>
       </div>
 
-      {/* Tabs */}
-      <div className="detail-tabs">
-        {TABS.map(t => (
-          <div
-            key={t}
-            className={`dtab${tab === t ? ' active' : ''}`}
-            onClick={() => setTab(t)}
-          >
-            <i className={`ti ${TAB_ICONS[t]}`} />{t}
-          </div>
-        ))}
-      </div>
-
-      {/* Body */}
-      <div className="detail-body">
-        {tab === 'spec' && (
-          <>
-            <div className="sec-title">METADATA</div>
-            <div className="field-row"><div className="fk">name</div><div className="fv">{item.name}</div></div>
-            <div className="field-row"><div className="fk">namespace</div><div className="fv">{item.namespace}</div></div>
-            <div className="field-row"><div className="fk">generation</div><div className="fv">{item.generation}</div></div>
-
-            {specFields.length > 0 && <div className="sec-title">SPEC</div>}
-            {specFields.map(([k, v]) => (
-              <div key={k} className="field-row">
-                <div className="fk">{k}</div>
-                <div className="fv">{v}</div>
-              </div>
-            ))}
-
-            {item.labels && Object.keys(item.labels).length > 0 && (
-              <>
-                <div className="sec-title">LABELS</div>
-                {Object.entries(item.labels).map(([k, v]) => (
-                  <div key={k} className="field-row">
-                    <div className="fk">{k}</div>
-                    <div className="fv">{v}</div>
-                  </div>
-                ))}
-              </>
-            )}
-          </>
-        )}
-
-        {tab === 'yaml' && (
-          <>
-            <div className="copy-btn">
-              <button type="button" className="btn" onClick={copyYaml}>
-                <i className={`ti ${copied ? 'ti-check' : 'ti-copy'}`} />
-                {copied ? 'copied' : 'copy'}
-              </button>
+      {/* Collapsible content */}
+      <div className="detail-content" style={{ display: collapsed ? 'none' : 'block' }}>
+        {/* Tabs */}
+        <div className="detail-tabs">
+          {TABS.map(t => (
+            <div
+              key={t}
+              className={`dtab${tab === t ? ' active' : ''}`}
+              onClick={() => setTab(t)}
+            >
+              <i className={`ti ${TAB_ICONS[t]}`} />{t}
             </div>
-            <pre className="yaml-block">{yamlStr}</pre>
-          </>
-        )}
+          ))}
+        </div>
 
-        {tab === 'conditions' && (
-          item.conditions.length === 0
-            ? <div className="empty-state">no conditions reported</div>
-            : item.conditions.map((c, i) => {
-                const falseDot = phaseLower === 'failed'  ? 'dot-failed'
-                               : phaseLower === 'running' ? 'dot-running'
-                               : phaseLower === 'pending' ? 'dot-pending'
-                               : 'dot-failed'
-                return (
-                  <div key={i} className="cond-row">
-                    <div className={`cond-dot ${c.status === 'True' ? 'dot-ready' : falseDot}`} />
+        {/* Body */}
+        <div className="detail-body">
+          {tab === 'spec' && (
+            <>
+              <div className="sec-title">METADATA</div>
+              <div className="field-row"><div className="fk">name</div><div className="fv">{item.name}</div></div>
+              <div className="field-row"><div className="fk">namespace</div><div className="fv">{item.namespace}</div></div>
+              <div className="field-row"><div className="fk">generation</div><div className="fv">{item.generation}</div></div>
+
+              {specFields.length > 0 && <div className="sec-title">SPEC</div>}
+              {specFields.map(([k, v]) => (
+                <div key={k} className="field-row">
+                  <div className="fk">{k}</div>
+                  <div className="fv">{v}</div>
+                </div>
+              ))}
+
+              {item.labels && Object.keys(item.labels).length > 0 && (
+                <>
+                  <div className="sec-title">LABELS</div>
+                  {Object.entries(item.labels).map(([k, v]) => (
+                    <div key={k} className="field-row">
+                      <div className="fk">{k}</div>
+                      <div className="fv">{v}</div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </>
+          )}
+
+          {tab === 'yaml' && (
+            <>
+              <div className="copy-btn">
+                <button type="button" className="btn" onClick={copyYaml}>
+                  <i className={`ti ${copied ? 'ti-check' : 'ti-copy'}`} />
+                  {copied ? 'copied' : 'copy'}
+                </button>
+              </div>
+              <pre className="yaml-block">{yamlStr}</pre>
+            </>
+          )}
+
+          {tab === 'conditions' && (
+            item.conditions.length === 0
+              ? <div className="empty-state">no conditions reported</div>
+              : item.conditions.map((c, i) => {
+                  const falseDot = phaseLower === 'failed'  ? 'dot-failed'
+                                 : phaseLower === 'running' ? 'dot-running'
+                                 : phaseLower === 'pending' ? 'dot-pending'
+                                 : 'dot-failed'
+                  return (
+                    <div key={i} className="cond-row">
+                      <div className={`cond-dot ${c.status === 'True' ? 'dot-ready' : falseDot}`} />
+                      <div>
+                        <div className="cond-type">{c.type}</div>
+                        <div className="cond-msg">{c.message}</div>
+                      </div>
+                    </div>
+                  )
+                })
+          )}
+
+          {tab === 'events' && (
+            item.events.length === 0
+              ? <div className="empty-state">no events reported</div>
+              : item.events.map((e, i) => (
+                  <div key={i} className="event-row">
+                    <div className={`event-dot ${e.type === 'Warning' ? 'dot-failed' : 'dot-ready'}`} />
                     <div>
-                      <div className="cond-type">{c.type}</div>
-                      <div className="cond-msg">{c.message}</div>
+                      <div className="event-type">{e.reason}</div>
+                      <div className="event-msg">{e.message}</div>
+                      <div className="event-meta">{e.count}x · {e.firstTime} → {e.lastTime}</div>
                     </div>
                   </div>
-                )
-              })
-        )}
-      </div>
+                ))
+          )}
 
-      {/* Footer actions */}
-      <div className="detail-actions">
-        {patchReady && (
-          <button type="button" className="btn detail-action-btn" onClick={handlePatch}>
-            <i className="ti ti-edit" />patch
-          </button>
-        )}
+        </div>
 
-        {isActive && (
-          <button type="button" className="btn detail-action-btn" onClick={() => alert(`debug: ${item.name}`)}>
-            <i className="ti ti-alert-triangle" />debug
-          </button>
-        )}
-
-        {onDelete && !confirmDelete && (
-          <button type="button" className="btn btn-danger" onClick={() => setConfirm(true)}>
-            <i className="ti ti-trash" />delete
-          </button>
-        )}
-
-        {onDelete && confirmDelete && (
-          <>
-            <button type="button" className="btn btn-danger" onClick={() => { onDelete(item.name); setConfirm(false) }}>
-              confirm
+        {/* Footer actions */}
+        <div className="detail-actions">
+          {patchReady && (
+            <button type="button" className="btn detail-action-btn" onClick={handlePatch}>
+              <i className="ti ti-edit" />patch
             </button>
-            <button type="button" className="btn" onClick={() => setConfirm(false)}>
-              cancel
+          )}
+
+          {isActive && (
+            <button type="button" className="btn detail-action-btn" onClick={() => alert(`debug: ${item.name}`)}>
+              <i className="ti ti-alert-triangle" />debug
             </button>
-          </>
-        )}
+          )}
+
+          {onDelete && !confirmDelete && (
+            <button type="button" className="btn btn-danger" onClick={() => setConfirm(true)}>
+              <i className="ti ti-trash" />delete
+            </button>
+          )}
+
+          {onDelete && confirmDelete && (
+            <>
+              <button type="button" className="btn btn-danger" onClick={() => { onDelete(item.name); setConfirm(false) }}>
+                confirm
+              </button>
+              <button type="button" className="btn" onClick={() => setConfirm(false)}>
+                cancel
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )

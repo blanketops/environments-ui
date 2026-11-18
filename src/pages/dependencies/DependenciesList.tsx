@@ -1,5 +1,5 @@
-import { type FC } from 'react'
-import { useList } from '../../hooks/useResource'
+import { useState, useEffect, type FC } from 'react'
+import { list } from '../../api/client'
 import type { CRStatus } from '../../types'
 
 const DEPENDENCY_KINDS = [
@@ -15,8 +15,6 @@ const DEPENDENCY_KINDS = [
   'knative',
   'kourier',
 ] as const
-
-type DependencyKind = typeof DEPENDENCY_KINDS[number]
 
 function DepRow({ dep }: { dep: CRStatus }) {
   const phase = dep.phase.toLowerCase()
@@ -39,22 +37,62 @@ function DepRow({ dep }: { dep: CRStatus }) {
 }
 
 export const DependenciesList: FC = () => {
-  const { data, loading } = useList('dependencies')
+  const [data, setData] = useState<CRStatus[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    setError(null)
+    Promise.all(
+      DEPENDENCY_KINDS.map(kind =>
+        list(kind).then((res: { items?: CRStatus[] }) => res.items ?? [])
+      )
+    )
+      .then(lists => {
+        const merged = lists.flat().sort((a, b) => a.name.localeCompare(b.name))
+        setData(merged)
+      })
+      .catch(err => setError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="bl">
+        <header className="bl-head">
+          <h1 className="bl-title">Dependencies</h1>
+          <p className="bl-sub">Platform dependencies — managed via bops-env</p>
+        </header>
+        <div className="loading-state"><div className="spinner-lg" />loading…</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="bl">
+        <header className="bl-head">
+          <h1 className="bl-title">Dependencies</h1>
+          <p className="bl-sub">Platform dependencies — managed via bops-env</p>
+        </header>
+        <div className="bl-placeholder">
+          <i className="ti ti-alert-triangle" style={{ fontSize: 32, color: 'var(--text3)' }} />
+          <p>Failed to load dependencies: {error}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bl">
       <header className="bl-head">
         <h1 className="bl-title">Dependencies</h1>
         <p className="bl-sub">Platform dependencies — managed via bops-env</p>
-        <div className="bl-actions">
-          <a href="/dependencies/new" className="btn btn-primary">
-            <i className="ti ti-plus" /> new dependency
-          </a>
-        </div>
       </header>
 
       <div className="bl-counts">
-        <span className="bl-ct bl-ct--total">{data?.total ?? 0} total</span>
+        <span className="bl-ct bl-ct--total">{data.length} total</span>
       </div>
 
       <div className="bl-table-wrap">
@@ -67,20 +105,16 @@ export const DependenciesList: FC = () => {
           <th></th>
         </div>
         <tbody>
-          {loading ? (
-            <div className="loading-state"><div className="spinner-lg" />loading…</div>
-          ) : data?.items.length === 0 ? (
+          {data.length === 0 ? (
             <tr><td colSpan={6} className="bl-placeholder">no dependencies yet</td></tr>
           ) : (
-            data?.items
-              .filter(dep => DEPENDENCY_KINDS.includes(dep.kind as DependencyKind))
-              .map(dep => <DepRow key={dep.name} dep={dep} />)
+            data.map(dep => <DepRow key={dep.name} dep={dep} />)
           )}
         </tbody>
       </div>
 
       <div className="bl-placeholder">
-        <i className="ti ti-box" style={{fontSize: 32, color: 'var(--text3)'}} />
+        <i className="ti ti-box" style={{ fontSize: 32, color: 'var(--text3)' }} />
         <p>Dependencies list — managed via bops-env</p>
       </div>
     </div>

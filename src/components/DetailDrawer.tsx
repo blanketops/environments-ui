@@ -1,4 +1,4 @@
-import { useState, type FC } from 'react'
+import { useState, useRef, useEffect, type FC } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { CRStatus } from '../types'
 import { toYaml } from './YamlBlock'
@@ -58,6 +58,17 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete }) => {
   const [copied,        setCopied] = useState(false)
   const [confirmDelete, setConfirm]= useState(false)
   const [collapsed,     setCollapsed] = useState(false)
+  const prevItem        = useRef<string | null>(null)
+
+  // Reset collapse state when a new item is selected so each drawer
+  // opens fully expanded instead of inheriting collapsed state from
+  // the previously viewed item.
+  useEffect(() => {
+    if (prevItem.current !== item?.name) {
+      setCollapsed(false)
+      prevItem.current = item?.name ?? null
+    }
+  }, [item?.name])
 
   if (!item) return null
 

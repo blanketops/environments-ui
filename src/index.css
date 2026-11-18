@@ -401,6 +401,7 @@ body {
 .collapse-toggle.rotated {
   transform: rotate(180deg);
 }
+.detail-content { flex:1; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
 .detail-tabs     { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
 .dtab {
   padding:8px 14px; font-size:12px; cursor:pointer;

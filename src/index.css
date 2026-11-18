@@ -663,7 +663,7 @@ select.form-input  { appearance:none; cursor:pointer; }
 
 .bl-th, .bl-tr {
   display: grid;
-  grid-template-columns: 32px 1fr 180px 100px 140px 80px 32px;
+  grid-template-columns: 32px 1fr 180px 100px 140px 80px;
   padding: 0 22px; gap: 8px; align-items: center;
 }
 .bl-th {

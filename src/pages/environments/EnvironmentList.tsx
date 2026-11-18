@@ -9,13 +9,12 @@ const DEFAULT_NS = 'blanketops-environments'
 
 function getSubItems(item: CRStatus) {
   const spec = item.spec as Record<string, unknown> ?? {}
-  const envType    = String(spec.envType ?? (spec.contract as Record<string, unknown>)?.envType ?? '—')
-  const contract   = spec.contract as Record<string, unknown> ?? {}
-  const ss         = (spec.secretStore ?? contract.secretStore) as Record<string, unknown> | undefined
-  const storeName  = String(ss?.name ?? '—')
+  const contract = (spec.contract ?? spec) as Record<string, unknown>
+  const envType = String(contract.environmentType ?? '—')
+  const typeLabel = String((item.labels ?? {})['environments.blanketops.dev/type'] ?? '—')
   return [
     { value: envType,   variant: 'tag' as const },
-    { value: storeName, variant: 'text' as const },
+    { value: typeLabel, variant: 'text' as const },
   ]
 }
 

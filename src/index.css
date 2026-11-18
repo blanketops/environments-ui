@@ -659,7 +659,7 @@ select.form-input  { appearance:none; cursor:pointer; }
 .bl-ct--fail   { color: var(--red); }
 
 /* Table */
-.bl-table-wrap { flex-shrink: 0; }
+.bl-table-wrap { overflow-y: auto; max-height: 60vh; }
 .bl-table { width: 100%; border-collapse: collapse; display: table; }
 
 .bl-th, .bl-tr {

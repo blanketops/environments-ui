@@ -29,6 +29,7 @@ import { GitHubWebhookList }  from './pages/supplychain/GitHubWebhookList'
 
 // Logs
 import { LogsPage }           from './pages/logs/LogsPage'
+import { LogsListPage }       from './pages/logs/LogsListPage'
 
 // Create forms — existing
 import { EnvironmentForm }    from './forms/EnvironmentForm'
@@ -93,6 +94,7 @@ export default function App() {
           <Route path="/githubwebhooks/new"   element={<GitHubWebhookForm />} />
 
           {/* Logs */}
+          <Route path="/logs"             element={<LogsListPage />} />
           <Route path="/logs/:namespace/:pod" element={<LogsPage />} />
         </Routes>
       </Layout>

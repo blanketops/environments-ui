@@ -1,21 +1,19 @@
 import type { FC } from 'react'
 import { Link } from 'react-router-dom'
 import { useList } from '../hooks/useResource'
-import type { Kind } from '../types'
 
 // ── Health ────────────────────────────────────────────────────────────────────
 
-interface HealthKind { kind: Kind; icon: string; label: string }
+interface HealthKind { kind: string; icon: string; label: string }
 
 const HEALTH_KINDS: HealthKind[] = [
-  { kind: 'environments',    icon: 'ti-box',           label: 'environments' },
-  { kind: 'builds',          icon: 'ti-package',       label: 'builds' },
-  { kind: 'packages',        icon: 'ti-box-multiple',  label: 'packages' },
-  { kind: 'serviceunits',    icon: 'ti-server',        label: 'service units' },
-  { kind: 'deployments',     icon: 'ti-rocket',        label: 'deployments' },
-  { kind: 'routes',          icon: 'ti-route',         label: 'routes' },
-  { kind: 'domains',         icon: 'ti-world',         label: 'domains' },
-  { kind: 'supplychains',    icon: 'ti-shield-check',  label: 'supply chains' },
+  { kind: 'environments',    icon: 'ti-box',           label: 'Environments' },
+  { kind: 'builds',          icon: 'ti-package',       label: 'Builds' },
+  { kind: 'packages',        icon: 'ti-box-multiple',  label: 'Packages' },
+  { kind: 'serviceunits',    icon: 'ti-server',        label: 'ServiceUnits' },
+  { kind: 'deployments',     icon: 'ti-rocket',        label: 'Deployments' },
+  { kind: 'routes',          icon: 'ti-route',         label: 'Routes' },
+  { kind: 'domains',         icon: 'ti-world',         label: 'Domains' },
 ]
 
 function HealthCard({ kind, icon, label }: HealthKind) {
@@ -61,47 +59,11 @@ function HealthCard({ kind, icon, label }: HealthKind) {
   )
 }
 
-// ── Pipelines ─────────────────────────────────────────────────────────────────
+// ── Status ────────────────────────────────────────────────────────────────────
 
 type StageStatus = 'ready' | 'running' | 'pending' | 'failed'
 
-interface Stage { l: string; i: string; s: StageStatus }
-interface PipelineEnv { name: string; type: string; store: string; build: Stage[]; net: Stage[] }
-
-const PIPELINES: PipelineEnv[] = [
-  {
-    name: 'environment-sample', type: 'dev', store: 'aws',
-    build: [
-      { l: 'GitRepository', i: 'ti-git-branch',  s: 'ready' },
-      { l: 'GitHubEvent',   i: 'ti-webhook',      s: 'ready' },
-      { l: 'Build',         i: 'ti-package',       s: 'running' },
-      { l: 'SupplyChain',   i: 'ti-shield-check', s: 'pending' },
-      { l: 'Package',       i: 'ti-box-multiple',  s: 'pending' },
-      { l: 'ServiceUnit',   i: 'ti-server',        s: 'pending' },
-      { l: 'Deployment',    i: 'ti-rocket',        s: 'pending' },
-    ],
-    net: [
-      { l: 'Route',  i: 'ti-route', s: 'ready' },
-      { l: 'Domain', i: 'ti-world', s: 'running' },
-    ],
-  },
-  {
-    name: 'dev-sandbox-001', type: 'dev', store: 'gcp',
-    build: [
-      { l: 'GitRepository', i: 'ti-git-branch',  s: 'ready' },
-      { l: 'GitHubEvent',   i: 'ti-webhook',      s: 'ready' },
-      { l: 'Build',         i: 'ti-package',       s: 'ready' },
-      { l: 'SupplyChain',   i: 'ti-shield-check', s: 'ready' },
-      { l: 'Package',       i: 'ti-box-multiple',  s: 'ready' },
-      { l: 'ServiceUnit',   i: 'ti-server',        s: 'running' },
-      { l: 'Deployment',    i: 'ti-rocket',        s: 'pending' },
-    ],
-    net: [
-      { l: 'Route',  i: 'ti-route', s: 'pending' },
-      { l: 'Domain', i: 'ti-world', s: 'pending' },
-    ],
-  },
-]
+interface Stage { label: string; icon: string; status: StageStatus }
 
 const STATUS_CLS: Record<StageStatus, string> = {
   ready:   'ps-ready',
@@ -114,13 +76,13 @@ function PipelineStages({ stages }: { stages: Stage[] }) {
   return (
     <div className="pipeline-stages">
       {stages.map((s, i) => (
-        <div key={s.l} className="ps">
+        <div key={s.label} className="ps">
           <div className="ps-block">
-            <div className={`ps-icon ${STATUS_CLS[s.s]}`}>
-              <i className={`ti ${s.i}`} />
-              {s.s === 'running' && <div className="spinner" />}
+            <div className={`ps-icon ${STATUS_CLS[s.status]}`}>
+              <i className={`ti ${s.icon}`} />
+              {s.status === 'running' && <div className="spinner" />}
             </div>
-            <div className="ps-label">{s.l}</div>
+            <div className="ps-label">{s.label}</div>
           </div>
           {i < stages.length - 1 && (
             <div className="ps-arrow"><i className="ti ti-chevron-right" /></div>
@@ -128,6 +90,90 @@ function PipelineStages({ stages }: { stages: Stage[] }) {
         </div>
       ))}
     </div>
+  )
+}
+
+// ── Pipelines (real data from API) ───────────────────────────────────────────
+
+function pipelineStage(kind: string, phase: string): Stage {
+  const p = phase.toLowerCase()
+  switch (kind) {
+    case 'builds':   return { label: 'Build',       icon: 'ti-package',   status: phaseStatus(p) }
+    case 'deployments': return { label: 'Deployment', icon: 'ti-rocket',  status: phaseStatus(p) }
+    case 'routes':   return { label: 'Route',       icon: 'ti-route',     status: phaseStatus(p) }
+    case 'domains':  return { label: 'Domain',      icon: 'ti-world',     status: phaseStatus(p) }
+    case 'packages': return { label: 'Package',     icon: 'ti-box-multiple', status: phaseStatus(p) }
+    case 'serviceunits': return { label: 'ServiceUnit', icon: 'ti-server', status: phaseStatus(p) }
+    case 'gitrepositories': return { label: 'GitRepository', icon: 'ti-git-branch', status: phaseStatus(p) }
+    case 'githubevents': return { label: 'GitHubEvent', icon: 'ti-webhook', status: phaseStatus(p) }
+    default:         return { label: kind,         icon: 'ti-box',       status: phaseStatus(p) }
+  }
+}
+
+function phaseStatus(p: string): StageStatus {
+  if (p === 'ready' || p === 'succeeded') return 'ready'
+  if (p === 'running' || p === 'progressing') return 'running'
+  if (p === 'failed') return 'failed'
+  return 'pending'
+}
+
+function Pipelines() {
+  const { data: envsData, loading } = useList('environments')
+  const envs = envsData?.items ?? []
+
+  if (loading) return (
+    <div className="pipeline-card">
+      <div className="pipeline-hdr"><span className="env-name-label">Loading environments…</span></div>
+    </div>
+  )
+
+  return (
+    <>
+      {envs.map(env => {
+        const spec = (env.spec ?? {}) as Record<string, unknown>
+        const contract = (spec.contract ?? {}) as Record<string, unknown>
+        const envType = String(spec.envType ?? contract.envType ?? 'development')
+        const envName = env.name
+        const ns = env.namespace
+
+        // Fetch related CRs for this environment
+        const [buildsData, deploysData, routesData, domainsData] = [
+          useList('builds', ns),
+          useList('deployments', ns),
+          useList('routes', ns),
+          useList('domains', ns),
+        ]
+
+        const builds: Stage[] = (buildsData.data?.items ?? [])
+          .filter(i => i.labels?.['environments.blanketops.dev/name'] === envName)
+          .map(i => pipelineStage('builds', i.phase))
+        const deployments: Stage[] = (deploysData.data?.items ?? [])
+          .filter(i => i.labels?.['environments.blanketops.dev/name'] === envName)
+          .map(i => pipelineStage('deployments', i.phase))
+        const routes: Stage[] = (routesData.data?.items ?? [])
+          .filter(i => i.labels?.['environments.blanketops.dev/name'] === envName)
+          .map(i => pipelineStage('routes', i.phase))
+        const domains: Stage[] = (domainsData.data?.items ?? [])
+          .filter(i => i.labels?.['environments.blanketops.dev/name'] === envName)
+          .map(i => pipelineStage('domains', i.phase))
+
+        return (
+          <div key={env.name} className="pipeline-card">
+            <div className="pipeline-hdr">
+              <i className="ti ti-box" style={{ color: 'var(--text2)' }} />
+              <span className="env-name-label">{envName}</span>
+              <span className="tag tag-blue">{envType}</span>
+            </div>
+            <div className="pipeline-track-label">BUILD CHAIN</div>
+            <PipelineStages stages={builds} />
+            <div className="pipeline-track-label" style={{ marginTop: 10 }}>DEPLOYMENTS</div>
+            <PipelineStages stages={deployments} />
+            <div className="pipeline-track-label" style={{ marginTop: 10 }}>NETWORKING</div>
+            <PipelineStages stages={[...routes, ...domains]} />
+          </div>
+        )
+      })}
+    </>
   )
 }
 
@@ -151,20 +197,7 @@ export const Dashboard: FC = () => (
     </div>
 
     <div className="section-title" style={{ marginTop: 6 }}>ENVIRONMENT PIPELINES</div>
-    {PIPELINES.map(env => (
-      <div key={env.name} className="pipeline-card">
-        <div className="pipeline-hdr">
-          <i className="ti ti-box" style={{ color: 'var(--text2)' }} />
-          <span className="env-name-label">{env.name}</span>
-          <span className="tag tag-blue">{env.type}</span>
-          <span className="pipeline-meta">store:{env.store}</span>
-        </div>
-        <div className="pipeline-track-label">BUILD CHAIN</div>
-        <PipelineStages stages={env.build} />
-        <div className="pipeline-track-label" style={{ marginTop: 10 }}>NETWORKING</div>
-        <PipelineStages stages={env.net} />
-      </div>
-    ))}
+    <Pipelines />
 
     <div className="section-title" style={{ marginTop: 6 }}>QUICK ACTIONS</div>
     <div className="qa-grid">

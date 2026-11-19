@@ -79,7 +79,7 @@ function flattenSpec(spec: unknown, prefix = ''): [string, string][] {
 
 const specJson = (spec: unknown) => JSON.stringify(spec ?? {}, null, 2)
 
-export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete, onPatched, onSelectItem }) => {
+export const DetailDrawer: FC<Props> = ({ item, onDelete, onPatched, onSelectItem }) => {
   const [tab,           setTab]     = useState<Tab>('spec')
   const [copied,        setCopied]  = useState(false)
   const [confirmDelete, setConfirm] = useState(false)
@@ -193,7 +193,6 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete, onPatched, on
     }
   }
 
-  const handleClose = () => { onClose(); setConfirm(false) }
   const handleToggleCollapse = (e: React.MouseEvent) => {
     e.stopPropagation()
     setCollapsed(c => !c)
@@ -210,8 +209,8 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete, onPatched, on
           <span className={`badge badge-${phaseLower}`}>{phaseLower}</span>
           <i className={`ti ti-chevron-down collapse-toggle${collapsed ? ' rotated' : ''}`} />
         </div>
-        <button type="button" className="btn" aria-label="Close" onClick={(e) => { e.stopPropagation(); handleClose() }}>
-          <i className="ti ti-x" />
+        <button type="button" className="btn" aria-label="Collapse" onClick={(e) => { e.stopPropagation(); handleToggleCollapse(e) }}>
+          <i className={`ti ti-chevron-down collapse-toggle${collapsed ? ' rotated' : ''}`} />
         </button>
       </div>
 

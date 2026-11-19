@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type FC } from 'react'
-import type { CRStatus } from '../types'
+import type { CRStatus, CREvent } from '../types'
 import { toYaml } from './YamlBlock'
 import { KIND_GROUP, KIND_SINGULAR, phaseClass } from '../types'
 import type { Kind } from '../types'
@@ -19,6 +19,18 @@ const SINGULAR_TO_ROUTE: Record<string, string> = {
   Route:         'routes',
   Domain:        'domains',
   SupplyChain:   'supplychains',
+}
+
+const routeKeyFor = (kind: string) =>
+  kind in KIND_GROUP ? kind : (SINGULAR_TO_ROUTE[kind] ?? kind)
+
+// Events are only populated by the dedicated /events endpoint, never by the
+// list response — so a selected row's item.events is always empty. Format the
+// timestamp compactly for the events tab meta line.
+function fmtEventTime(iso: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? iso : d.toLocaleString()
 }
 
 interface Props {
@@ -43,10 +55,21 @@ function flattenSpec(spec: unknown, prefix = ''): [string, string][] {
   if (!spec || typeof spec !== 'object') return []
   return Object.entries(spec as Record<string, unknown>).flatMap(([k, v]) => {
     const key = prefix ? `${prefix}.${k}` : k
-    if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+    if (Array.isArray(v)) {
+      // Array of objects → recurse with indexed keys so nested fields render
+      // (e.g. policy.allowedTriggers.0.type) instead of "[object Object]".
+      const hasObject = v.some(x => x !== null && typeof x === 'object')
+      if (!hasObject) return [[key, v.join(', ') || '—']] as [string, string][]
+      return v.flatMap((item, i) =>
+        item !== null && typeof item === 'object'
+          ? flattenSpec(item, `${key}.${i}`)
+          : [[`${key}.${i}`, String(item ?? '—')]] as [string, string][],
+      )
+    }
+    if (v !== null && typeof v === 'object') {
       return flattenSpec(v, key)
     }
-    return [[key, Array.isArray(v) ? (v as unknown[]).join(', ') : String(v ?? '—')]] as [string, string][]
+    return [[key, String(v ?? '—')]] as [string, string][]
   })
 }
 
@@ -69,6 +92,10 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete, onPatched }) 
   const [saveErr, setSaveErr] = useState<string | null>(null)
   const [saved,   setSaved]   = useState(false)
 
+  // Events for the selected item. The list/row item.events is always empty;
+  // only the /events endpoint returns them, so fetch on selection change.
+  const [events, setEvents] = useState<CREvent[]>([])
+
   // When a different item is selected, sync the view and reset per-item UI
   // state. Collapse is intentionally NOT reset — the user controls it.
   useEffect(() => {
@@ -82,6 +109,17 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete, onPatched }) 
     }
   }, [item?.name, item])
 
+  useEffect(() => {
+    if (!item) { setEvents([]); return }
+    let cancelled = false
+    const rk = routeKeyFor(item.kind)
+    import('../api/client')
+      .then(({ getEvents }) => getEvents(rk, item.namespace, item.name))
+      .then(ev => { if (!cancelled) setEvents(ev) })
+      .catch(() => { if (!cancelled) setEvents([]) })
+    return () => { cancelled = true }
+  }, [item?.name, item?.namespace, item?.kind])
+
   if (!item) return null
 
   // Prefer the freshest of (patched view, incoming prop) for the same item.
@@ -92,7 +130,7 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete, onPatched }) 
   const phaseLower = phasePc.toLowerCase()
   const isActive   = phasePc === 'Running' || phasePc === 'Failed'
 
-  const routeKey = (v.kind in KIND_GROUP) ? v.kind : (SINGULAR_TO_ROUTE[v.kind] ?? v.kind)
+  const routeKey = routeKeyFor(v.kind)
   const kindKey  = routeKey               // valid Kind for group/singular lookups
   const canPatch = routeKey in KIND_GROUP // every known kind supports spec patch
 
@@ -251,18 +289,21 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete, onPatched }) 
           )}
 
           {tab === 'events' && (
-            v.events.length === 0
+            events.length === 0
               ? <div className="empty-state">no events reported</div>
-              : v.events.map((e, i) => (
-                  <div key={i} className="event-row">
-                    <div className={`event-dot ${e.type === 'Warning' ? 'dot-failed' : 'dot-ready'}`} />
-                    <div>
-                      <div className="event-type">{e.reason}</div>
-                      <div className="event-msg">{e.message}</div>
-                      <div className="event-meta">{e.count}x · {e.firstTime} → {e.lastTime}</div>
+              : [...events].reverse().map((e, i) => {
+                  const when = fmtEventTime(e.lastTime || e.firstTime)
+                  return (
+                    <div key={i} className="event-row">
+                      <div className={`event-dot ${e.type === 'Warning' ? 'dot-failed' : 'dot-ready'}`} />
+                      <div>
+                        <div className="event-type">{e.reason}</div>
+                        <div className="event-msg">{e.message}</div>
+                        <div className="event-meta">{e.count > 1 ? `${e.count}× · ` : ''}{when}</div>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  )
+                })
           )}
 
           {tab === 'edit' && canPatch && (

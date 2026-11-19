@@ -43,7 +43,7 @@ export const SupplyChainList: FC = () => {
         onSelect={setSelected}
         getSubItems={getSubItems}
       />
-      <DetailDrawer item={selected} onClose={() => setSelected(null)} onDelete={handleDelete} onPatched={refetch} />
+      <DetailDrawer item={selected} onClose={() => setSelected(null)} onDelete={handleDelete} onPatched={refetch} onSelectItem={(item) => setSelected(item)} />
     </>
   )
 }

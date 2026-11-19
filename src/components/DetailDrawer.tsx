@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, type FC } from 'react'
 import type { CRStatus, CREvent } from '../types'
 import { toYaml } from './YamlBlock'
+import { ConfirmDialog } from './ConfirmDialog'
+import { ObjectMap } from './ObjectMap'
 import { KIND_GROUP, KIND_SINGULAR, phaseClass } from '../types'
 import type { Kind } from '../types'
 
@@ -34,13 +36,14 @@ function fmtEventTime(iso: string): string {
 }
 
 interface Props {
-  item:       CRStatus | null
-  onClose:    () => void
-  onDelete?:  (name: string) => void
-  onPatched?: () => void          // let the parent list refetch after a patch
+  item:        CRStatus | null
+  onClose:     () => void
+  onDelete?:   (name: string) => void | Promise<void>
+  onPatched?:  () => void          // let the parent list refetch after a patch
+  onSelectItem?: (item: CRStatus) => void // select a related item from the map
 }
 
-const BASE_TABS = ['spec', 'yaml', 'conditions', 'events'] as const
+const BASE_TABS = ['spec', 'yaml', 'conditions', 'events', 'map'] as const
 type Tab = typeof BASE_TABS[number] | 'edit'
 
 const TAB_ICONS: Record<Tab, string> = {
@@ -48,6 +51,7 @@ const TAB_ICONS: Record<Tab, string> = {
   yaml:       'ti-code',
   conditions: 'ti-checks',
   events:     'ti-bell',
+  map:        'ti-sitemap',
   edit:       'ti-edit',
 }
 
@@ -75,10 +79,11 @@ function flattenSpec(spec: unknown, prefix = ''): [string, string][] {
 
 const specJson = (spec: unknown) => JSON.stringify(spec ?? {}, null, 2)
 
-export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete, onPatched }) => {
+export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete, onPatched, onSelectItem }) => {
   const [tab,           setTab]     = useState<Tab>('spec')
   const [copied,        setCopied]  = useState(false)
   const [confirmDelete, setConfirm] = useState(false)
+  const [deleting,      setDeleting] = useState(false)
   const [collapsed,     setCollapsed] = useState(false)
 
   // Local view of the resource. Seeded from the prop, refreshed in place
@@ -306,6 +311,10 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete, onPatched }) 
                 })
           )}
 
+          {tab === 'map' && (
+            <ObjectMap item={v} onSelectItem={onSelectItem} />
+          )}
+
           {tab === 'edit' && canPatch && (
             <div className="patch-edit">
               <div className="sec-title">PATCH SPEC</div>
@@ -358,15 +367,23 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete, onPatched }) 
             </button>
           )}
 
-          {tab !== 'edit' && onDelete && confirmDelete && (
-            <>
-              <button type="button" className="btn btn-danger" onClick={() => { onDelete(v.name); setConfirm(false) }}>
-                confirm
-              </button>
-              <button type="button" className="btn" onClick={() => setConfirm(false)}>
-                cancel
-              </button>
-            </>
+          {tab !== 'edit' && onDelete && (
+            <ConfirmDialog
+              open={confirmDelete}
+              busy={deleting}
+              title={`Delete ${KIND_SINGULAR[routeKey as Kind] ?? v.kind}?`}
+              message={`This permanently deletes "${v.name}". This action cannot be undone.`}
+              confirmLabel="delete"
+              busyMessage="deleting…"
+              onConfirm={() => {
+                setDeleting(true)
+                Promise.resolve(onDelete(v.name)).finally(() => {
+                  setDeleting(false)
+                  setConfirm(false)
+                })
+              }}
+              onCancel={() => setConfirm(false)}
+            />
           )}
         </div>
       </div>

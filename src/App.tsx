@@ -42,6 +42,9 @@ import { DomainForm }         from './forms/DomainForm'
 import { SupplyChainForm }    from './forms/SupplyChainForm'
 import { GitHubWebhookForm }  from './forms/GitHubWebhookForm'
 
+// Patch forms
+import { BuildPatch }         from './forms/BuildPatch'
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -55,6 +58,7 @@ export default function App() {
           <Route path="/environments/new"   element={<EnvironmentForm />} />
           <Route path="/builds"             element={<BuildList />} />
           <Route path="/builds/new"         element={<BuildForm />} />
+          <Route path="/builds/:namespace/:name/patch" element={<BuildPatch />} />
           <Route path="/packages"           element={<PackageList />} />
           <Route path="/packages/new"       element={<PackageForm />} />
           <Route path="/serviceunits"       element={<ServiceUnitList />} />

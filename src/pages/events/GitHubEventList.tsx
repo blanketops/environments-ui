@@ -39,7 +39,7 @@ export const GitHubEventList: FC = () => {
         onSelect={setSelected}
         getSubItems={getSubItems}
       />
-      <DetailDrawer item={selected} onClose={() => setSelected(null)} onDelete={handleDelete} />
+      <DetailDrawer item={selected} onClose={() => setSelected(null)} onDelete={handleDelete} onPatched={refetch} />
     </>
   )
 }

@@ -1,44 +1,42 @@
-import { useState, useRef, useEffect, type FC } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef, type FC } from 'react'
 import type { CRStatus } from '../types'
 import { toYaml } from './YamlBlock'
 import { KIND_GROUP, KIND_SINGULAR, phaseClass } from '../types'
 import type { Kind } from '../types'
 
-// item.kind is the PascalCase CRD kind from the Kubernetes API ('Build', 'Environment', …)
-// Kind type is the lowercase route key union — a different thing.
-// We use Record<string, string> here to avoid conflating the two.
-
-const KIND_ROUTE: Record<string, string> = {
-  Build:          'builds',
-  Environment:    'environments',
-  Package:        'packages',
-  ServiceUnit:    'serviceunits',
-  Deployment:     'deployments',
-  GitRepository:  'gitrepositories',
-  GitHubEvent:    'githubevents',
-  Route:          'routes',
-  Domain:         'domains',
-  SupplyChain:    'supplychains',
+// This API returns item.kind as the lowercase plural route key ('environments',
+// 'builds') — which is exactly the `Kind` union keyed in KIND_GROUP/KIND_SINGULAR.
+// A live K8s backend may instead send PascalCase singular ('Environment'); map that.
+const SINGULAR_TO_ROUTE: Record<string, string> = {
+  Environment:   'environments',
+  Build:         'builds',
+  Package:       'packages',
+  ServiceUnit:   'serviceunits',
+  Deployment:    'deployments',
+  GitRepository: 'gitrepositories',
+  GitHubEvent:   'githubevents',
+  GitHubWebhook: 'githubwebhooks',
+  Route:         'routes',
+  Domain:        'domains',
+  SupplyChain:   'supplychains',
 }
-
-// Add PascalCase kind names here as you build patch forms for them
-const PATCH_ENABLED = new Set<string>(['Build'])
 
 interface Props {
-  item:      CRStatus | null
-  onClose:   () => void
-  onDelete?: (name: string) => void
+  item:       CRStatus | null
+  onClose:    () => void
+  onDelete?:  (name: string) => void
+  onPatched?: () => void          // let the parent list refetch after a patch
 }
 
-const TABS = ['spec', 'yaml', 'conditions', 'events'] as const
-type Tab = typeof TABS[number]
+const BASE_TABS = ['spec', 'yaml', 'conditions', 'events'] as const
+type Tab = typeof BASE_TABS[number] | 'edit'
 
 const TAB_ICONS: Record<Tab, string> = {
   spec:       'ti-list',
   yaml:       'ti-code',
   conditions: 'ti-checks',
   events:     'ti-bell',
+  edit:       'ti-edit',
 }
 
 function flattenSpec(spec: unknown, prefix = ''): [string, string][] {
@@ -52,42 +50,60 @@ function flattenSpec(spec: unknown, prefix = ''): [string, string][] {
   })
 }
 
-export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete }) => {
-  const nav = useNavigate()
-  const [tab,           setTab]    = useState<Tab>('spec')
-  const [copied,        setCopied] = useState(false)
-  const [confirmDelete, setConfirm]= useState(false)
-  const [collapsed,     setCollapsed] = useState(false)
-  const prevItem        = useRef<string | null>(null)
+const specJson = (spec: unknown) => JSON.stringify(spec ?? {}, null, 2)
 
-  // Reset collapse state when a new item is selected so each drawer
-  // opens fully expanded instead of inheriting collapsed state from
-  // the previously viewed item.
+export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete, onPatched }) => {
+  const [tab,           setTab]     = useState<Tab>('spec')
+  const [copied,        setCopied]  = useState(false)
+  const [confirmDelete, setConfirm] = useState(false)
+  const [collapsed,     setCollapsed] = useState(false)
+
+  // Local view of the resource. Seeded from the prop, refreshed in place
+  // after a successful patch so the drawer always shows the latest server state.
+  const [view, setView] = useState<CRStatus | null>(item)
+  const prevName = useRef<string | null>(item?.name ?? null)
+
+  // Edit (patch) tab state
+  const [draft,   setDraft]   = useState('')
+  const [saving,  setSaving]  = useState(false)
+  const [saveErr, setSaveErr] = useState<string | null>(null)
+  const [saved,   setSaved]   = useState(false)
+
+  // When a different item is selected, sync the view and reset per-item UI
+  // state. Collapse is intentionally NOT reset — the user controls it.
   useEffect(() => {
-    if (prevItem.current !== item?.name) {
-      setCollapsed(false)
-      prevItem.current = item?.name ?? null
+    if (item?.name !== prevName.current) {
+      setView(item)
+      prevName.current = item?.name ?? null
+      setTab('spec')
+      setConfirm(false)
+      setSaveErr(null)
+      setSaved(false)
     }
-  }, [item?.name])
+  }, [item?.name, item])
 
   if (!item) return null
 
-  const specFields = flattenSpec(item.spec)
-  const phasePc   = phaseClass(item.phase)
+  // Prefer the freshest of (patched view, incoming prop) for the same item.
+  const v = view && view.name === item.name ? view : item
+
+  const specFields = flattenSpec(v.spec)
+  const phasePc    = phaseClass(v.phase)
   const phaseLower = phasePc.toLowerCase()
   const isActive   = phasePc === 'Running' || phasePc === 'Failed'
 
-  // item.kind is PascalCase ('Build') — use string, not Kind type
-  const kindKey    = item.kind                   // 'Build'
-  const routeKey   = KIND_ROUTE[kindKey]         // 'builds'
-  const patchReady = PATCH_ENABLED.has(kindKey)  // true for 'Build'
+  const routeKey = (v.kind in KIND_GROUP) ? v.kind : (SINGULAR_TO_ROUTE[v.kind] ?? v.kind)
+  const kindKey  = routeKey               // valid Kind for group/singular lookups
+  const canPatch = routeKey in KIND_GROUP // every known kind supports spec patch
+
+  const TABS: Tab[] = canPatch ? [...BASE_TABS, 'edit'] : [...BASE_TABS]
 
   const yamlObj = {
     apiVersion: KIND_GROUP[kindKey as Kind]    ?? 'environments.blanketops.dev/v1alpha1',
-    kind:       KIND_SINGULAR[kindKey as Kind] ?? item.kind,
-    metadata:   { name: item.name, namespace: item.namespace, labels: item.labels },
-    spec:       item.spec,
-    status:     { phase: item.phase, conditions: item.conditions },
+    kind:       KIND_SINGULAR[kindKey as Kind] ?? v.kind,
+    metadata:   { name: v.name, namespace: v.namespace, labels: v.labels },
+    spec:       v.spec,
+    status:     { phase: v.phase, conditions: v.conditions },
   }
   const yamlStr = toYaml(yamlObj).trim()
 
@@ -97,9 +113,40 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete }) => {
       setTimeout(() => setCopied(false), 2000)
     })
 
-  const handlePatch = () => {
-    if (routeKey && patchReady) {
-      nav(`/${routeKey}/${item.namespace}/${item.name}/patch`)
+  const openEdit = () => {
+    setDraft(specJson(v.spec))
+    setSaveErr(null)
+    setSaved(false)
+    setTab('edit')
+  }
+
+  const selectTab = (t: Tab) => (t === 'edit' ? openEdit() : setTab(t))
+
+  const handleSave = async () => {
+    if (!routeKey) return
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(draft)
+    } catch (e) {
+      setSaveErr(`Invalid JSON — ${(e as Error).message}`)
+      return
+    }
+    setSaving(true)
+    setSaveErr(null)
+    setSaved(false)
+    try {
+      const { patchResource, getResource } = await import('../api/client')
+      await patchResource(routeKey, v.namespace, v.name, { spec: parsed })
+      const fresh = await getResource(routeKey, v.namespace, v.name)
+      setView(fresh)
+      setDraft(specJson(fresh.spec))
+      setSaved(true)
+      onPatched?.()
+      setTimeout(() => setSaved(false), 2000)
+    } catch (e) {
+      setSaveErr((e as Error).message ?? String(e))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -116,7 +163,7 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete }) => {
       {/* Header — always visible */}
       <div className="detail-hdr" onClick={handleToggleCollapse}>
         <div className="detail-hdr-left">
-          <span className="detail-name">{item.name}</span>
+          <span className="detail-name">{v.name}</span>
           <span className={`badge badge-${phaseLower}`}>{phaseLower}</span>
           <i className={`ti ti-chevron-down collapse-toggle${collapsed ? ' rotated' : ''}`} />
         </div>
@@ -126,14 +173,14 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete }) => {
       </div>
 
       {/* Collapsible content */}
-      <div className="detail-content" style={{ display: collapsed ? 'none' : 'block' }}>
+      <div className="detail-content" style={{ display: collapsed ? 'none' : 'flex' }}>
         {/* Tabs */}
         <div className="detail-tabs">
           {TABS.map(t => (
             <div
               key={t}
               className={`dtab${tab === t ? ' active' : ''}`}
-              onClick={() => setTab(t)}
+              onClick={() => selectTab(t)}
             >
               <i className={`ti ${TAB_ICONS[t]}`} />{t}
             </div>
@@ -145,25 +192,25 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete }) => {
           {tab === 'spec' && (
             <>
               <div className="sec-title">METADATA</div>
-              <div className="field-row"><div className="fk">name</div><div className="fv">{item.name}</div></div>
-              <div className="field-row"><div className="fk">namespace</div><div className="fv">{item.namespace}</div></div>
-              <div className="field-row"><div className="fk">generation</div><div className="fv">{item.generation}</div></div>
+              <div className="field-row"><div className="fk">name</div><div className="fv">{v.name}</div></div>
+              <div className="field-row"><div className="fk">namespace</div><div className="fv">{v.namespace}</div></div>
+              <div className="field-row"><div className="fk">generation</div><div className="fv">{v.generation}</div></div>
 
               {specFields.length > 0 && <div className="sec-title">SPEC</div>}
-              {specFields.map(([k, v]) => (
+              {specFields.map(([k, val]) => (
                 <div key={k} className="field-row">
                   <div className="fk">{k}</div>
-                  <div className="fv">{v}</div>
+                  <div className="fv">{val}</div>
                 </div>
               ))}
 
-              {item.labels && Object.keys(item.labels).length > 0 && (
+              {v.labels && Object.keys(v.labels).length > 0 && (
                 <>
                   <div className="sec-title">LABELS</div>
-                  {Object.entries(item.labels).map(([k, v]) => (
+                  {Object.entries(v.labels).map(([k, val]) => (
                     <div key={k} className="field-row">
                       <div className="fk">{k}</div>
-                      <div className="fv">{v}</div>
+                      <div className="fv">{val}</div>
                     </div>
                   ))}
                 </>
@@ -184,9 +231,9 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete }) => {
           )}
 
           {tab === 'conditions' && (
-            item.conditions.length === 0
+            v.conditions.length === 0
               ? <div className="empty-state">no conditions reported</div>
-              : item.conditions.map((c, i) => {
+              : v.conditions.map((c, i) => {
                   const falseDot = phaseLower === 'failed'  ? 'dot-failed'
                                  : phaseLower === 'running' ? 'dot-running'
                                  : phaseLower === 'pending' ? 'dot-pending'
@@ -204,9 +251,9 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete }) => {
           )}
 
           {tab === 'events' && (
-            item.events.length === 0
+            v.events.length === 0
               ? <div className="empty-state">no events reported</div>
-              : item.events.map((e, i) => (
+              : v.events.map((e, i) => (
                   <div key={i} className="event-row">
                     <div className={`event-dot ${e.type === 'Warning' ? 'dot-failed' : 'dot-ready'}`} />
                     <div>
@@ -218,31 +265,61 @@ export const DetailDrawer: FC<Props> = ({ item, onClose, onDelete }) => {
                 ))
           )}
 
+          {tab === 'edit' && canPatch && (
+            <div className="patch-edit">
+              <div className="sec-title">PATCH SPEC</div>
+              <p className="patch-hint">
+                Edit <code>spec</code> as JSON, then save to PATCH <code>{routeKey}/{v.namespace}/{v.name}</code>.
+              </p>
+              <textarea
+                className="patch-editor"
+                spellCheck={false}
+                value={draft}
+                onChange={(e) => { setDraft(e.target.value); setSaveErr(null); setSaved(false) }}
+              />
+              {saveErr && (
+                <div className="patch-msg patch-msg--err">
+                  <i className="ti ti-alert-circle" />{saveErr}
+                </div>
+              )}
+              {saved && !saveErr && (
+                <div className="patch-msg patch-msg--ok">
+                  <i className="ti ti-check" />patched — generation {v.generation}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer actions */}
         <div className="detail-actions">
-          {patchReady && (
-            <button type="button" className="btn detail-action-btn" onClick={handlePatch}>
-              <i className="ti ti-edit" />patch
-            </button>
+          {tab === 'edit' && canPatch && (
+            <>
+              <button type="button" className="btn btn-primary detail-action-btn" onClick={handleSave} disabled={saving}>
+                <i className={`ti ${saving ? 'ti-loader-2 spin' : 'ti-device-floppy'}`} />
+                {saving ? 'saving…' : 'save patch'}
+              </button>
+              <button type="button" className="btn" onClick={() => setDraft(specJson(v.spec))} disabled={saving}>
+                <i className="ti ti-restore" />reset
+              </button>
+            </>
           )}
 
-          {isActive && (
-            <button type="button" className="btn detail-action-btn" onClick={() => alert(`debug: ${item.name}`)}>
+          {tab !== 'edit' && isActive && (
+            <button type="button" className="btn detail-action-btn" onClick={() => alert(`debug: ${v.name}`)}>
               <i className="ti ti-alert-triangle" />debug
             </button>
           )}
 
-          {onDelete && !confirmDelete && (
+          {tab !== 'edit' && onDelete && !confirmDelete && (
             <button type="button" className="btn btn-danger" onClick={() => setConfirm(true)}>
               <i className="ti ti-trash" />delete
             </button>
           )}
 
-          {onDelete && confirmDelete && (
+          {tab !== 'edit' && onDelete && confirmDelete && (
             <>
-              <button type="button" className="btn btn-danger" onClick={() => { onDelete(item.name); setConfirm(false) }}>
+              <button type="button" className="btn btn-danger" onClick={() => { onDelete(v.name); setConfirm(false) }}>
                 confirm
               </button>
               <button type="button" className="btn" onClick={() => setConfirm(false)}>

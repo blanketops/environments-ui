@@ -151,8 +151,9 @@ body {
   padding:16px 0; overflow:hidden;
   transition:width .2s ease, min-width .2s ease;
 }
-.sidebar-nav { flex:1; overflow-y:auto; overflow-x:hidden; }
+.sidebar-nav { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; }
 .logo {
+  flex-shrink:0;
   display:flex; align-items:center; gap:10px;
   padding:0 16px 20px; text-decoration:none; color:var(--text2);
 }
@@ -427,6 +428,32 @@ body {
   padding:12px; font-family:var(--mono); font-size:11px;
   line-height:1.8; color:var(--text2); white-space:pre; overflow-x:auto;
 }
+
+/* ── Patch / edit tab ── */
+.patch-edit { display:flex; flex-direction:column; height:100%; }
+.patch-hint { font-size:11px; color:var(--text3); margin:0 0 10px; line-height:1.6; }
+.patch-hint code {
+  font-family:var(--mono); color:var(--text2);
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:4px; padding:1px 5px;
+}
+.patch-editor {
+  flex:1; min-height:220px; resize:vertical;
+  background:var(--bg); border:1px solid var(--border2); border-radius:var(--radius-sm);
+  padding:12px; font-family:var(--mono); font-size:12px; line-height:1.7;
+  color:var(--text); outline:none; tab-size:2;
+  transition:border-color .1s;
+}
+.patch-editor:focus { border-color:var(--accent); }
+.patch-msg {
+  display:flex; align-items:center; gap:6px;
+  font-size:11px; font-family:var(--font-ui);
+  margin-top:10px; padding:8px 10px; border-radius:var(--radius-sm);
+}
+.patch-msg i { font-size:14px; }
+.patch-msg--err { color:var(--red);   background:var(--red-bg);   border:1px solid var(--red); }
+.patch-msg--ok  { color:var(--green); background:var(--green-bg); border:1px solid var(--green); }
+.spin { animation:spin 1s linear infinite; }
 
 /* ── Conditions ── */
 .cond-row {

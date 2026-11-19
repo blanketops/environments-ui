@@ -5,6 +5,9 @@ import { ConfirmDialog } from './ConfirmDialog'
 import { ObjectMap } from './ObjectMap'
 import { KIND_GROUP, KIND_SINGULAR, phaseClass } from '../types'
 import type { Kind } from '../types'
+import { list, deleteResource } from '../api/client'
+import { useToast } from './Layout'
+
 
 // This API returns item.kind as the lowercase plural route key ('environments',
 // 'builds') — which is exactly the `Kind` union keyed in KIND_GROUP/KIND_SINGULAR.
@@ -98,6 +101,35 @@ export const DetailDrawer: FC<Props> = ({ item, onDelete, onPatched, onSelectIte
   const [saved,   setSaved]   = useState(false)
 
   // Events for the selected item. The list/row item.events is always empty;
+  // ── Related-resource delete flow ─────────────────────────────────────
+  const [relatedItems, setRelatedItems] = useState<Map<string, CRStatus[]>>(new Map())
+  const [relatedFetched, setRelatedFetched] = useState(false)
+  const { showToast } = useToast()
+
+  // Fetch all CRs sharing this item's environment label (same env = same lifecycle)
+  const fetchRelatedItems = async () => {
+    if (relatedFetched) return
+    const envName = v.labels?.['environments.blanketops.dev/name'] ?? v.name
+    const kinds = ['builds', 'deployments', 'packages', 'serviceunits', 'gitrepositories', 'githubevents', 'routes', 'domains', 'buildruns']
+    const results: Map<string, CRStatus[]> = new Map()
+
+    await Promise.all(
+      kinds.map(async (kind) => {
+        try {
+          const res = await list(kind)
+          const items = (res.items ?? []).filter(
+            (i) => i.labels?.['environments.blanketops.dev/name'] === envName &&
+              !(i.kind === v.kind && i.name === v.name && i.namespace === v.namespace)
+          )
+          if (items.length > 0) results.set(kind, items)
+        } catch {
+          // Kind may not be installed (e.g. buildruns) — skip gracefully
+        }
+      })
+    )
+    setRelatedItems(results)
+    setRelatedFetched(true)
+  }
   // only the /events endpoint returns them, so fetch on selection change.
   const [events, setEvents] = useState<CREvent[]>([])
 
@@ -361,7 +393,7 @@ export const DetailDrawer: FC<Props> = ({ item, onDelete, onPatched, onSelectIte
           )}
 
           {tab !== 'edit' && onDelete && !confirmDelete && (
-            <button type="button" className="btn btn-danger" onClick={() => setConfirm(true)}>
+            <button type="button" className="btn btn-danger" onClick={() => { fetchRelatedItems(); setConfirm(true) }}>
               <i className="ti ti-trash" />delete
             </button>
           )}
@@ -371,15 +403,32 @@ export const DetailDrawer: FC<Props> = ({ item, onDelete, onPatched, onSelectIte
               open={confirmDelete}
               busy={deleting}
               title={`Delete ${KIND_SINGULAR[routeKey as Kind] ?? v.kind}?`}
-              message={`This permanently deletes "${v.name}". This action cannot be undone.`}
+              message={`This permanently deletes "${v.name}"${
+                relatedItems.size > 0
+                  ? ` and ${Object.values(relatedItems).flat().length} related resource${
+                      Object.values(relatedItems).flat().length !== 1 ? 's' : ''
+                    }`
+                  : ''
+              }. This action cannot be undone.`}
               confirmLabel="delete"
               busyMessage="deleting…"
-              onConfirm={() => {
+              onConfirm={async () => {
                 setDeleting(true)
-                Promise.resolve(onDelete(v.name)).finally(() => {
+                try {
+                  // Delete related items first, then the main item
+                  for (const [kind, items] of relatedItems) {
+                    for (const item of items) {
+                      await deleteResource(kind, item.namespace, item.name)
+                    }
+                  }
+                  await deleteResource(routeKey, v.namespace, v.name)
+                  showToast(`Deleted "${v.name}" and ${Object.values(relatedItems).flat().length} related resource(s)`, 'success')
+                } catch (e) {
+                  showToast(`Delete failed: ${e instanceof Error ? e.message : String(e)}`, 'error')
+                } finally {
                   setDeleting(false)
                   setConfirm(false)
-                })
+                }
               }}
               onCancel={() => setConfirm(false)}
             />

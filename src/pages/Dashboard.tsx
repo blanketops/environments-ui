@@ -117,11 +117,24 @@ function phaseStatus(p: string): StageStatus {
   return 'pending'
 }
 
+// Pipelines fetches all data at the top level (no hooks inside loops),
+// then filters CRs by environment label client-side.
 function Pipelines() {
-  const { data: envsData, loading } = useList('environments')
-  const envs = envsData?.items ?? []
+  const { data: envsData, loading: envLoading } = useList('environments')
+  const { data: buildsData } = useList('builds')
+  const { data: deploysData } = useList('deployments')
+  const { data: routesData } = useList('routes')
+  const { data: domainsData } = useList('domains')
 
-  if (loading) return (
+  const envs = envsData?.items ?? []
+  const allBuilds   = buildsData?.items ?? []
+  const allDeploys  = deploysData?.items ?? []
+  const allRoutes   = routesData?.items ?? []
+  const allDomains  = domainsData?.items ?? []
+
+  const envListLoading = envLoading || !envsData || !buildsData || !deploysData || !routesData || !domainsData
+
+  if (envListLoading) return (
     <div className="pipeline-card">
       <div className="pipeline-hdr"><span className="env-name-label">Loading environments…</span></div>
     </div>
@@ -134,26 +147,17 @@ function Pipelines() {
         const contract = (spec.contract ?? {}) as Record<string, unknown>
         const envType = String(spec.envType ?? contract.envType ?? 'development')
         const envName = env.name
-        const ns = env.namespace
 
-        // Fetch related CRs for this environment
-        const [buildsData, deploysData, routesData, domainsData] = [
-          useList('builds', ns),
-          useList('deployments', ns),
-          useList('routes', ns),
-          useList('domains', ns),
-        ]
-
-        const builds: Stage[] = (buildsData.data?.items ?? [])
+        const builds: Stage[] = (allBuilds)
           .filter(i => i.labels?.['environments.blanketops.dev/name'] === envName)
           .map(i => pipelineStage('builds', i.phase))
-        const deployments: Stage[] = (deploysData.data?.items ?? [])
+        const deployments: Stage[] = (allDeploys)
           .filter(i => i.labels?.['environments.blanketops.dev/name'] === envName)
           .map(i => pipelineStage('deployments', i.phase))
-        const routes: Stage[] = (routesData.data?.items ?? [])
+        const routes: Stage[] = (allRoutes)
           .filter(i => i.labels?.['environments.blanketops.dev/name'] === envName)
           .map(i => pipelineStage('routes', i.phase))
-        const domains: Stage[] = (domainsData.data?.items ?? [])
+        const domains: Stage[] = (allDomains)
           .filter(i => i.labels?.['environments.blanketops.dev/name'] === envName)
           .map(i => pipelineStage('domains', i.phase))
 

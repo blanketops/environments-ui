@@ -3,6 +3,7 @@ import { useList } from '../../hooks/useResource'
 import { ResourceList } from '../../components/ResourceList'
 import { DetailDrawer } from '../../components/DetailDrawer'
 import type { CRStatus } from '../../types'
+import { labelsToSubItems } from '../../types'
 
 const KIND = 'serviceunits'
 
@@ -15,6 +16,7 @@ function getSubItems(item: CRStatus) {
   return [
     { value: type, variant: 'tag' as const },
     { value: desc, variant: 'text' as const },
+    ...labelsToSubItems(item.labels),
   ]
 }
 

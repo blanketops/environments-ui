@@ -3,6 +3,7 @@ import { useList } from '../../hooks/useResource'
 import { ResourceList } from '../../components/ResourceList'
 import { DetailDrawer } from '../../components/DetailDrawer'
 import type { CRStatus } from '../../types'
+import { labelsToSubItems } from '../../types'
 
 const KIND = 'domains'
 
@@ -15,6 +16,7 @@ function getSubItems(item: CRStatus) {
     { value: host,  variant: 'text' as const },
     { value: strat, variant: 'tag' as const },
     ...(mtls ? [{ value: mtls, variant: 'tag-purple' as const }] : []),
+    ...labelsToSubItems(item.labels),
   ]
 }
 

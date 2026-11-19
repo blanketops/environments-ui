@@ -3,6 +3,7 @@ import { useList } from '../../hooks/useResource'
 import { ResourceList } from '../../components/ResourceList'
 import { DetailDrawer } from '../../components/DetailDrawer'
 import type { CRStatus } from '../../types'
+import { labelsToSubItems } from '../../types'
 
 const KIND = 'environments'
 const DEFAULT_NS = 'blanketops-environments'
@@ -15,6 +16,7 @@ function getSubItems(item: CRStatus) {
   return [
     { value: envType,   variant: 'tag' as const },
     { value: typeLabel, variant: 'text' as const },
+    ...labelsToSubItems(item.labels),
   ]
 }
 

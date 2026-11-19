@@ -3,6 +3,7 @@ import { useList } from '../../hooks/useResource'
 import { ResourceList } from '../../components/ResourceList'
 import { DetailDrawer } from '../../components/DetailDrawer'
 import type { CRStatus } from '../../types'
+import { labelsToSubItems } from '../../types'
 
 const KIND = 'gitrepositories'
 
@@ -16,6 +17,7 @@ function getSubItems(item: CRStatus) {
   return [
     { value: label, variant: 'text' as const },
     { value: evStr, variant: 'text' as const },
+    ...labelsToSubItems(item.labels),
   ]
 }
 

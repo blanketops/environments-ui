@@ -3,6 +3,7 @@ import { useList } from '../../hooks/useResource'
 import { ResourceList } from '../../components/ResourceList'
 import { DetailDrawer } from '../../components/DetailDrawer'
 import type { CRStatus } from '../../types'
+import { labelsToSubItems } from '../../types'
 
 const KIND = 'githubwebhooks'
 
@@ -13,6 +14,7 @@ function getSubItems(item: CRStatus) {
   return [
     { value: repo,   variant: 'text' as const },
     { value: events, variant: 'tag' as const },
+    ...labelsToSubItems(item.labels),
   ]
 }
 

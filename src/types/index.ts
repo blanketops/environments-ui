@@ -77,6 +77,26 @@ export function phaseClass(phase: string): 'Ready' | 'Running' | 'Pending' | 'Fa
   return 'Unknown'
 }
 
+export type SubVariant = 'text' | 'tag' | 'tag-amber' | 'tag-purple' | 'tag-green'
+
+export interface SubItem {
+  value: string
+  variant?: SubVariant
+}
+
+// ── Label helpers ─────────────────────────────────────────────────────
+// Extract the environment name/type labels from a CR's labels map as
+// list sub-items, so every row shows which environment it belongs to.
+export function labelsToSubItems(labels: Record<string, string> | undefined): SubItem[] {
+  if (!labels) return []
+  const items: SubItem[] = []
+  const envName = labels['environments.blanketops.dev/name']
+  const envType = labels['environments.blanketops.dev/type']
+  if (envName) items.push({ value: `env:${envName}`, variant: 'text' })
+  if (envType) items.push({ value: `type:${envType}`, variant: 'tag' })
+  return items
+}
+
 export const ALL_KINDS = [
   'environments',
   'builds',

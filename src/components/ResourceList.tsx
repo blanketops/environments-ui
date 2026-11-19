@@ -1,6 +1,6 @@
 import type { FC } from 'react'
 import { Link } from 'react-router-dom'
-import type { CRStatus } from '../types'
+import type { CRStatus, SubItem } from '../types'
 import { phaseClass } from '../types'
 
 function computeAge(item: CRStatus): string {
@@ -12,13 +12,6 @@ function computeAge(item: CRStatus): string {
   if (diff < 3_600_000)   return `${Math.floor(diff / 60_000)}m`
   if (diff < 86_400_000)  return `${Math.floor(diff / 3_600_000)}h`
   return `${Math.floor(diff / 86_400_000)}d`
-}
-
-export type SubVariant = 'text' | 'tag' | 'tag-amber' | 'tag-purple' | 'tag-green'
-
-export interface SubItem {
-  value: string
-  variant?: SubVariant
 }
 
 function TagEl({ item }: { item: SubItem }) {

@@ -1,16 +1,16 @@
 <!DOCTYPE html>
-<html lang="en" data-skin="tailadmin">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BlanketOps Environments</title>
-    <!-- Apply the stored skin before first paint (mirrors applySkin in src/skins/skins.ts). -->
+    <!-- Apply the stored skin before first paint -->
     <script>
       (function () {
         try {
           var skin = localStorage.getItem('blanketops.skin');
           var mode = localStorage.getItem('blanketops.mode');
-          if (skin !== 'tailadmin' && skin !== 'terminal') skin = 'tailadmin';
+          if (skin !== 'adminbsb' && skin !== 'terminal') skin = 'adminbsb';
           if (mode !== 'light' && mode !== 'dark') mode = 'light';
           if (skin === 'terminal') mode = 'dark';
           var root = document.documentElement;
@@ -21,11 +21,19 @@
       })();
     </script>
     <link rel="icon" href="/favicon.ico" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <!-- Bootstrap 4 CSS -->
+    <link rel="stylesheet" href="/node_modules/bootstrap/dist/css/bootstrap.min.css" />
+    <!-- Font Awesome 4.7 -->
+    <link rel="stylesheet" href="/node_modules/font-awesome/css/font-awesome.min.css" />
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="root"></div>
+    <!-- jQuery + Popper.js + Bootstrap JS -->
+    <script src="/node_modules/jquery/dist/jquery.min.js"></script>
+    <script src="/node_modules/popper.js/dist/umd/popper.min.js"></script>
+    <script src="/node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

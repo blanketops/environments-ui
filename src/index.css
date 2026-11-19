@@ -485,7 +485,15 @@ body {
 
 .om-canvas   { flex:1; position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; }
 .om-svg      { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
-.om-line     { stroke:var(--border); stroke-width:1.5; opacity:0.6; }
+.om-line     { stroke-width:1.5; opacity:0.6; pointer-events:none; }
+.om-edge-label {
+  fill: var(--text2);
+  font-size: 8px;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  text-anchor: middle;
+  pointer-events: none;
+}
 
 .om-node {
   position: absolute;
@@ -509,12 +517,18 @@ body {
 .om-node:hover { transform: translate(-2px, -2px); border-color: var(--accent); z-index: 5; }
 .om-node--center {
   width: 170px;
+  left: calc(50% - 85px);
+  top: calc(50% - 85px);
   border-width: 2px;
   border-color: var(--blue);
   background: var(--blue-bg);
   z-index: 10;
 }
 .om-node--center .om-node-label { font-weight:600; color:var(--text); }
+.om-node--parent {
+  border-color: var(--blue);
+  background: var(--blue-bg);
+}
 .om-node-dot {
   width: 9px; height: 9px; border-radius: 50%;
   margin-bottom: 4px;
@@ -528,6 +542,11 @@ body {
 .om-node-kind   { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:.04em; }
 .om-node-badge  { font-size:9px; padding:1px 6px; border-radius:10px; background:var(--tint); color:var(--text2); margin-top:2px; }
 .om-node--center .om-node-badge { display:none; }
+.om-node-badge--parent {
+  background: var(--blue-bg);
+  color: var(--blue);
+  font-size: 8px;
+}
 
 .om-empty {
   display:flex; flex-direction:column; align-items:center; justify-content:center;

@@ -19,6 +19,7 @@ const ROUTE_META: Record<string, { title: string; badge?: string }> = {
   '/domains':         { title: 'Domains',        badge: 'Domain'        },
   '/supplychains':    { title: 'Supply Chains',  badge: 'SupplyChain'   },
   '/githubwebhooks':  { title: 'GitHub Webhooks',badge: 'GitHubWebhook' },
+  '/logs':            { title: 'Logs',          badge: 'Logs'         },
 }
 
 const SIDEBAR_KEY = 'blanketops.sidebar'
@@ -42,7 +43,7 @@ export const Layout: FC<{ children: ReactNode }> = ({ children }) => {
 
   return (
     <div className="app">
-      <Sidebar collapsed={collapsed} />
+      <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
       <div className="main">
 
         <header className="topbar">

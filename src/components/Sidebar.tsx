@@ -18,6 +18,7 @@ const NAV: Section[] = [
       { label: 'Package',      to: '/packages',      icon: 'ti-box-multiple' },
       { label: 'Service Unit', to: '/serviceunits',  icon: 'ti-server' },
       { label: 'Deployment',   to: '/deployments',   icon: 'ti-rocket' },
+      { label: 'Logs',         to: '/logs',          icon: 'ti-file-text' },
     ],
   },
   {
@@ -49,36 +50,43 @@ const NAV: Section[] = [
   },
 ]
 
-export const Sidebar: FC<{ collapsed?: boolean }> = ({ collapsed = false }) => (
-  <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
-    <NavLink to="/" className="logo" aria-label="BlanketOps Environments home">
-      <img className="logo-mark" src="/logo.png" alt="" aria-hidden="true" />
-      <span className="logo-text">
-        <span className="logo-name">blanket<em>ops</em></span>
-        <span className="logo-scope">environments</span>
-      </span>
-    </NavLink>
-    <nav className="sidebar-nav">
-      {NAV.map(section => (
-        <div key={section.title} className="nav-group">
-          <p className="nav-section">
-            <span className="nav-section-text">{section.title}</span>
-            <i className="ti ti-dots nav-section-dots" aria-hidden="true" />
-          </p>
-          {section.items.map(item => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              title={collapsed ? item.label : undefined}
-              className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
-            >
-              <i className={`ti ${item.icon}`} />
-              <span className="nav-label">{item.label}</span>
-            </NavLink>
-          ))}
-        </div>
-      ))}
-    </nav>
-  </aside>
-)
+export const Sidebar: FC<{ collapsed?: boolean; setCollapsed?: (v: boolean) => void }> = ({ collapsed = false, setCollapsed }) => {
+  const onItemClick = () => {
+    if (setCollapsed) setCollapsed(true)
+  }
+
+  return (
+    <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}`}>
+      <NavLink to="/" className="logo" aria-label="BlanketOps Environments home">
+        <img className="logo-mark" src="/logo.png" alt="" aria-hidden="true" />
+        <span className="logo-text">
+          <span className="logo-name">blanket<em>ops</em></span>
+          <span className="logo-scope">environments</span>
+        </span>
+      </NavLink>
+      <nav className="sidebar-nav">
+        {NAV.map(section => (
+          <div key={section.title} className="nav-group">
+            <p className="nav-section">
+              <span className="nav-section-text">{section.title}</span>
+              <i className="ti ti-dots nav-section-dots" aria-hidden="true" />
+            </p>
+            {section.items.map(item => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                title={collapsed ? item.label : undefined}
+                className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+                onClick={onItemClick}
+              >
+                <i className={`ti ${item.icon}`} />
+                <span className="nav-label">{item.label}</span>
+              </NavLink>
+            ))}
+          </div>
+        ))}
+      </nav>
+    </aside>
+  )
+}

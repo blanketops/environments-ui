@@ -5,26 +5,36 @@ import { KIND_LABELS, phaseClass } from '../types'
 
 // ── Relationship definitions ──────────────────────────────────────────
 // Each edge kind defines how a center item relates to its satellites,
-// with a verb for the edge label and a color for the line.
+// with a verb for the edge label, a short badge, an edge color, and the
+// label key used to correlate satellites to the center item.
 interface RelationshipDef {
   kind: string
   label: string      // full verb shown in edge label
   short: string      // short badge on edge
   color: string      // CSS var for edge color
+  labelKey: string   // label key on satellites that points back to center
+  labelValue: (item: CRStatus) => string  // extract the center's name from an item
 }
 
+// Environment → composed CRs (label: environments.blanketops.dev/name)
 const ENV_RELATIONSHIPS: RelationshipDef[] = [
-  { kind: 'builds',       label: 'builds',        short: 'build',  color: 'var(--blue)'   },
-  { kind: 'deployments',  label: 'deploys to',    short: 'deploy', color: 'var(--green)'  },
-  { kind: 'packages',     label: 'installs',      short: 'pkg',    color: 'var(--purple)' },
-  { kind: 'serviceunits', label: 'runs',          short: 'svc',    color: 'var(--amber)'  },
-  { kind: 'gitrepositories', label: 'sources from', short: 'git',   color: 'var(--text2)' },
-  { kind: 'routes',       label: 'exposes via',   short: 'route',  color: 'var(--cyan)'   },
-  { kind: 'domains',      label: 'hosts at',      short: 'dom',    color: 'var(--pink)'   },
+  { kind: 'builds',        label: 'builds',        short: 'build', color: 'var(--blue)',   labelKey: 'environments.blanketops.dev/name', labelValue: (i) => i.labels?.['environments.blanketops.dev/name'] ?? '' },
+  { kind: 'deployments',   label: 'deploys to',    short: 'deploy',color: 'var(--green)',  labelKey: 'environments.blanketops.dev/name', labelValue: (i) => i.labels?.['environments.blanketops.dev/name'] ?? '' },
+  { kind: 'packages',      label: 'installs',      short: 'pkg',   color: 'var(--purple)', labelKey: 'environments.blanketops.dev/name', labelValue: (i) => i.labels?.['environments.blanketops.dev/name'] ?? '' },
+  { kind: 'serviceunits',  label: 'runs',          short: 'svc',   color: 'var(--amber)',  labelKey: 'environments.blanketops.dev/name', labelValue: (i) => i.labels?.['environments.blanketops.dev/name'] ?? '' },
+  { kind: 'gitrepositories',label: 'sources from', short: 'git',   color: 'var(--text2)',  labelKey: 'environments.blanketops.dev/name', labelValue: (i) => i.labels?.['environments.blanketops.dev/name'] ?? '' },
+  { kind: 'routes',        label: 'exposes via',   short: 'route', color: 'var(--cyan)',   labelKey: 'environments.blanketops.dev/name', labelValue: (i) => i.labels?.['environments.blanketops.dev/name'] ?? '' },
+  { kind: 'domains',       label: 'hosts at',      short: 'dom',   color: 'var(--pink)',   labelKey: 'environments.blanketops.dev/name', labelValue: (i) => i.labels?.['environments.blanketops.dev/name'] ?? '' },
+]
+
+// Build → BuildRun (Shipwright; label: build.blanketops.dev/name)
+const BUILD_RELATIONSHIPS: RelationshipDef[] = [
+  { kind: 'buildruns',     label: 'runs',          short: 'run',   color: 'var(--red)',    labelKey: 'build.blanketops.dev/name', labelValue: (i) => i.name },
 ]
 
 const KIND_RELATIONSHIPS: Record<string, RelationshipDef[]> = {
   environments: ENV_RELATIONSHIPS,
+  builds:       BUILD_RELATIONSHIPS,
 }
 
 interface Props {
@@ -37,10 +47,14 @@ interface Props {
  *
  * Shows the selected item at the center and all related CRs as satellites,
  * connected by labeled edges that describe the relationship type
- * (builds, deploys to, exposes via, hosts at, …).
+ * (builds, deploys to, runs, exposes via, hosts at, …).
  *
- * When the selected item is not an Environment, its parent Environment is
- * shown as a "parent" node at the top, with siblings as additional satellites.
+ * Two levels of depth:
+ *   Level 1 — center item → its direct relationships (Environment → Build,
+ *             Build → BuildRun, etc.)
+ *   Level 2 — parent Environment navigation: non-Environment items show
+ *             their parent env as a top node
+ *
  * Clicking any node re-selects that item.
  */
 export const ObjectMap: FC<Props> = ({ item, onSelectItem }) => {
@@ -59,16 +73,22 @@ export const ObjectMap: FC<Props> = ({ item, onSelectItem }) => {
     setLoading(true)
     setError(null)
 
-    const envDefs = KIND_RELATIONSHIPS[item.kind] ?? []
+    const defs = KIND_RELATIONSHIPS[item.kind] ?? []
 
-    const queries: Promise<{ kind: string; items: CRStatus[] }>[] = envDefs.map(
+    const queries: Promise<{ kind: string; items: CRStatus[] }>[] = defs.map(
       (def) =>
-        list(def.kind).then((res) => {
-          const items = (res.items ?? []).filter(
-            (i) => i.labels?.['environments.blanketops.dev/name'] === envName
-          )
-          return { kind: def.kind, items }
-        }),
+        list(def.kind)
+          .then((res) => {
+            // Correlate satellites to center via the relationship's label key.
+            const items = (res.items ?? []).filter((i) => {
+              const centerName = def.labelValue(i)
+              return centerName !== '' && centerName === envName
+            })
+            return { kind: def.kind, items }
+          })
+          // A relationship kind may not be installed yet (e.g. buildruns
+          // before the server picks up the new GVK). Skip it gracefully.
+          .catch(() => ({ kind: def.kind, items: [] as CRStatus[] })),
     )
 
     // If this item is not an Environment, also fetch its parent Environment.
@@ -90,7 +110,10 @@ export const ObjectMap: FC<Props> = ({ item, onSelectItem }) => {
         results.forEach(({ kind, items }) => {
           // Filter out the center item itself when it appears in its own kind list.
           const filtered = items.filter(
-            (i) => !(i.kind === item.kind && i.name === item.name && i.namespace === item.namespace),
+            (i) =>
+              !(i.kind === item.kind &&
+                i.name === item.name &&
+                i.namespace === item.namespace),
           )
           if (filtered.length > 0) {
             map.set(kind, filtered)
@@ -167,7 +190,8 @@ export const ObjectMap: FC<Props> = ({ item, onSelectItem }) => {
   }
 
   entries.forEach(([kind, items]) => {
-    const def = ENV_RELATIONSHIPS.find((d) => d.kind === kind)
+    const def = ENV_RELATIONSHIPS.find((d) => d.kind === kind) ??
+      BUILD_RELATIONSHIPS.find((d) => d.kind === kind)
     if (!def) return
     groups.push({
       kind: def.kind,

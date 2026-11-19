@@ -27,6 +27,9 @@ import { DomainList }         from './pages/networking/DomainList'
 import { SupplyChainList }    from './pages/supplychain/SupplyChainList'
 import { GitHubWebhookList }  from './pages/supplychain/GitHubWebhookList'
 
+// Logs
+import { LogsPage }           from './pages/logs/LogsPage'
+
 // Create forms — existing
 import { EnvironmentForm }    from './forms/EnvironmentForm'
 import { BuildForm }          from './forms/BuildForm'
@@ -88,6 +91,9 @@ export default function App() {
           <Route path="/supplychains/new"     element={<SupplyChainForm />} />
           <Route path="/githubwebhooks"       element={<GitHubWebhookList />} />
           <Route path="/githubwebhooks/new"   element={<GitHubWebhookForm />} />
+
+          {/* Logs */}
+          <Route path="/logs/:namespace/:pod" element={<LogsPage />} />
         </Routes>
       </Layout>
     </BrowserRouter>

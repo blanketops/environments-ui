@@ -6,6 +6,40 @@ import { TagInput } from './shared/TagInput'
 import { YamlPreview } from './shared/YamlPreview'
 import { client } from '../api/client'
 
+interface ProviderField {
+  label: string
+  placeholder: string
+  required?: boolean
+  value: string
+  onChange: (v: string) => void
+}
+
+const PROVIDER_FIELDS: Record<string, (common: { ssName: string; setSsName: (v: string) => void }) => ProviderField[]> = {
+  aws: ({ ssName, setSsName }) => [
+    { label: 'secretStore.name', placeholder: 'blanketops-environments-aws', required: true, value: ssName, onChange: setSsName },
+    { label: 'secretStore.aws.region', placeholder: 'us-east-1', required: true, value: '', onChange: () => {} },
+    { label: 'secretStore.aws.pathPrefix', placeholder: '/blanketops', required: false, value: '', onChange: () => {} },
+    { label: 'secretStore.aws.roleArn', placeholder: 'arn:aws:iam::123456789012:role/BlanketOpsIRSA', required: false, value: '', onChange: () => {} },
+  ],
+  azure: ({ ssName, setSsName }) => [
+    { label: 'secretStore.name', placeholder: 'blanketops-environments-azure', required: true, value: ssName, onChange: setSsName },
+    { label: 'secretStore.azure.vaultUrl', placeholder: 'https://myvault.vault.azure.net', required: true, value: '', onChange: () => {} },
+  ],
+  gcp: ({ ssName, setSsName }) => [
+    { label: 'secretStore.name', placeholder: 'blanketops-environments-gcp', required: true, value: ssName, onChange: setSsName },
+    { label: 'secretStore.gcp.projectId', placeholder: 'my-gcp-project', required: true, value: '', onChange: () => {} },
+  ],
+  vault: ({ ssName, setSsName }) => [
+    { label: 'secretStore.name', placeholder: 'blanketops-environments-vault', required: true, value: ssName, onChange: setSsName },
+    { label: 'secretStore.vault.address', placeholder: 'http://vault:8200', required: true, value: '', onChange: () => {} },
+    { label: 'secretStore.vault.token', placeholder: 'root-token', required: true, value: '', onChange: () => {} },
+    { label: 'secretStore.vault.mount', placeholder: 'secret', required: true, value: '', onChange: () => {} },
+  ],
+  local: ({ ssName, setSsName }) => [
+    { label: 'secretStore.name', placeholder: 'blanketops-environments-local', required: true, value: ssName, onChange: setSsName },
+  ],
+}
+
 export const EnvironmentForm: FC = () => {
   const nav = useNavigate()
   const [name,     setName]     = useState('')
@@ -15,20 +49,27 @@ export const EnvironmentForm: FC = () => {
   const [version,  setVersion]  = useState('')
   const [branch,   setBranch]   = useState('main')
   const [gitOwner, setGitOwner] = useState('')
-  const [provider, setProvider] = useState('vault')
+  const [provider, setProvider] = useState('aws')
   const [ssName,   setSsName]   = useState('')
   const [labels,   setLabels]   = useState<string[]>([])
   const [error,    setError]    = useState<string | null>(null)
   const [saving,   setSaving]   = useState(false)
 
+  // Provider-specific extra fields state
+  const [extraFields, setExtraFields] = useState<Record<string, string>>({})
+
+  const getProviderFields = () => PROVIDER_FIELDS[provider]?.({ ssName, setSsName }) ?? []
+
   const spec = {
-    contract: {
-      applicationName: appName,
-      environmentType: envType,
-      version: version,
-      branch: branch,
-      gitOwner: gitOwner,
-      secretStore: { name: ssName || undefined, provider },
+    applicationName: appName,
+    environmentType: envType,
+    version: version,
+    branch: branch,
+    gitOwner: gitOwner,
+    secretStore: {
+      name: ssName || undefined,
+      provider,
+      ...extraFields,
     },
   }
 
@@ -46,6 +87,16 @@ export const EnvironmentForm: FC = () => {
       nav('/environments')
     } catch (err) { setError(String(err)) }
     finally { setSaving(false) }
+  }
+
+  // Update extraFields when provider changes
+  const fields = getProviderFields()
+  if (fields.length > 1) {
+    const newExtra: Record<string, string> = {}
+    fields.slice(1).forEach(f => { newExtra[f.label.replace('secretStore.', '')] = f.value })
+    setExtraFields(newExtra)
+  } else {
+    setExtraFields({})
   }
 
   return (
@@ -88,11 +139,23 @@ export const EnvironmentForm: FC = () => {
             { value: 'aws',   icon: 'ti-brand-aws',   label: 'AWS',   sub: 'Secrets Manager via IRSA' },
             { value: 'azure', icon: 'ti-brand-azure', label: 'Azure', sub: 'Key Vault via Workload Identity' },
             { value: 'gcp',   icon: 'ti-cloud',       label: 'GCP',   sub: 'Secret Manager via Workload Identity' },
+            { value: 'vault', icon: 'ti-vault',       label: 'Vault', sub: 'HashiCorp Vault KV v2' },
             { value: 'local', icon: 'ti-server',      label: 'Local', sub: 'In-cluster Secrets (dev only)' },
           ]} />
-          <Field label="secretStore.name" hint="Name of the ClusterSecretStore or SecretStore CR">
-            <Input value={ssName} onChange={e => setSsName(e.target.value)} placeholder="blanketops-environments-aws" />
-          </Field>
+
+          {fields.map((field, idx) => (
+            <Field key={idx} label={field.label} hint={field.required ? 'required' : 'optional'}>
+              <Input
+                value={idx === 0 ? ssName : extraFields[field.label.replace('secretStore.', '')] || ''}
+                onChange={e => {
+                  if (idx === 0) setSsName(e.target.value)
+                  else setExtraFields(prev => ({ ...prev, [field.label.replace('secretStore.', '')]: e.target.value }))
+                }}
+                placeholder={field.placeholder}
+                required={field.required}
+              />
+            </Field>
+          ))}
 
           {error && <p className="form-submit-error">{error}</p>}
           <div className="form-footer">

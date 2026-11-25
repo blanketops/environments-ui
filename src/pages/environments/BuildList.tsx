@@ -9,8 +9,7 @@ const KIND = 'builds'
 const DEFAULT_NS = 'blanketops-environments'
 
 function getContract(item: CRStatus) {
-  const spec = item.spec as Record<string, unknown> ?? {}
-  return (spec.contract ?? spec) as Record<string, unknown>
+  return item.spec as Record<string, unknown> ?? {}
 }
 
 function getSubItems(item: CRStatus) {

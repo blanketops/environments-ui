@@ -144,8 +144,7 @@ function Pipelines() {
     <>
       {envs.map(env => {
         const spec = (env.spec ?? {}) as Record<string, unknown>
-        const contract = (spec.contract ?? {}) as Record<string, unknown>
-        const envType = String(spec.envType ?? contract.envType ?? 'development')
+        const envType = String(spec.environmentType ?? spec.envType ?? 'development')
         const envName = env.name
 
         const builds: Stage[] = (allBuilds)
@@ -184,11 +183,15 @@ function Pipelines() {
 // ── Quick actions ─────────────────────────────────────────────────────────────
 
 const QUICK_ACTIONS = [
-  { icon: 'ti-box',         label: 'New Environment', sub: 'root CR',              bg: 'var(--blue-bg)',   c: 'var(--blue)',   to: '/environments' },
-  { icon: 'ti-package',     label: 'New Build',       sub: 'kaniko · buildah',     bg: 'var(--green-bg)',  c: 'var(--green)',  to: '/builds' },
-  { icon: 'ti-box-multiple',label: 'New Package',     sub: 'kustomize · state repo',bg: 'var(--bg3)',      c: 'var(--text2)', to: '/packages' },
-  { icon: 'ti-server',      label: 'New ServiceUnit', sub: 'static · build',       bg: 'var(--red-bg)',    c: 'var(--red)',    to: '/serviceunits' },
-  { icon: 'ti-route',       label: 'New Route',       sub: 'platform · custom',    bg: 'var(--blue-bg)',   c: 'var(--blue)',   to: '/routes' },
+  { icon: 'ti-box',          label: 'New Environment',   sub: 'root CR',              bg: 'var(--blue-bg)',   c: 'var(--blue)',   to: '/environments' },
+  { icon: 'ti-package',      label: 'New Build',         sub: 'kaniko · buildah',     bg: 'var(--green-bg)',  c: 'var(--green)',  to: '/builds' },
+  { icon: 'ti-box-multiple', label: 'New Package',       sub: 'kustomize · state repo',bg: 'var(--bg3)',      c: 'var(--text2)', to: '/packages' },
+  { icon: 'ti-server',       label: 'New ServiceUnit',   sub: 'static · build',       bg: 'var(--red-bg)',    c: 'var(--red)',    to: '/serviceunits' },
+  { icon: 'ti-rocket',       label: 'New Deployment',    sub: 'k8s · helm',           bg: 'var(--amber-bg)',  c: 'var(--amber)',  to: '/deployments' },
+  { icon: 'ti-route',        label: 'New Route',         sub: 'platform · custom',    bg: 'var(--blue-bg)',   c: 'var(--blue)',   to: '/routes' },
+  { icon: 'ti-world',        label: 'New Domain',        sub: 'tls · dns01',          bg: 'var(--purple-bg)', c: 'var(--purple)', to: '/domains' },
+  { icon: 'ti-git-branch',   label: 'New GitRepository', sub: 'flux · source',        bg: 'var(--green-bg)',  c: 'var(--green)',  to: '/gitrepositories' },
+  { icon: 'ti-webhook',      label: 'New GitHubEvent',   sub: 'push · pr · webhook',  bg: 'var(--amber-bg)',  c: 'var(--amber)',  to: '/githubevents' },
 ]
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────

@@ -10,8 +10,7 @@ const DEFAULT_NS = 'blanketops-environments'
 
 function getSubItems(item: CRStatus) {
   const spec = item.spec as Record<string, unknown> ?? {}
-  const contract = (spec.contract ?? spec) as Record<string, unknown>
-  const envType = String(contract.environmentType ?? '—')
+  const envType = String(spec.environmentType ?? spec.envType ?? '—')
   const typeLabel = String((item.labels ?? {})['environments.blanketops.dev/type'] ?? '—')
   return [
     { value: envType,   variant: 'tag' as const },

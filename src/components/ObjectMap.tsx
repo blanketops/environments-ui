@@ -28,9 +28,7 @@ const ENV_RELATIONSHIPS: RelationshipDef[] = [
 ]
 
 // Build → BuildRun (Shipwright; label: build.blanketops.dev/name)
-const BUILD_RELATIONSHIPS: RelationshipDef[] = [
-  { kind: 'buildruns',     label: 'runs',          short: 'run',   color: 'var(--red)',    labelKey: 'build.blanketops.dev/name', labelValue: (i) => i.name },
-]
+const BUILD_RELATIONSHIPS: RelationshipDef[] = []
 
 const KIND_RELATIONSHIPS: Record<string, RelationshipDef[]> = {
   environments: ENV_RELATIONSHIPS,

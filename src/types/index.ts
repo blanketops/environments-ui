@@ -107,8 +107,6 @@ export const ALL_KINDS = [
   'githubevents',
   'routes',
   'domains',
-  'supplychains',
-  'githubwebhooks',
 ] as const
 
 export type Kind = typeof ALL_KINDS[number]
@@ -123,8 +121,6 @@ export const KIND_LABELS: Record<Kind, string> = {
   githubevents:    'GitHubEvents',
   routes:          'Routes',
   domains:         'Domains',
-  supplychains:    'SupplyChains',
-  githubwebhooks:  'GitHubWebhooks',
 }
 
 export const KIND_GROUP: Record<Kind, string> = {
@@ -137,8 +133,6 @@ export const KIND_GROUP: Record<Kind, string> = {
   githubevents:    'events.blanketops.dev/v1alpha1',
   routes:          'networking.environments.blanketops.dev/v1alpha1',
   domains:         'networking.environments.blanketops.dev/v1alpha1',
-  supplychains:    'supplychain.blanketops.dev/v1alpha1',
-  githubwebhooks:  'supplychain.blanketops.dev/v1alpha1',
 }
 
 export const KIND_SINGULAR: Record<Kind, string> = {
@@ -151,6 +145,4 @@ export const KIND_SINGULAR: Record<Kind, string> = {
   githubevents:    'GitHubEvent',
   routes:          'Route',
   domains:         'Domain',
-  supplychains:    'SupplyChain',
-  githubwebhooks:  'GitHubWebhook',
 }

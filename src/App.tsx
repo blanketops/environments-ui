@@ -11,7 +11,7 @@ import { ServiceUnitList }    from './pages/environments/ServiceUnitList'
 import { DeploymentList }     from './pages/environments/DeploymentList'
 
 // Dependencies
-import { DependenciesList } from "./pages/dependencies/DependenciesList"
+// import { DependenciesList } from "./pages/dependencies/DependenciesList"
 
 // Sources
 import { GitRepositoryList }  from './pages/sources/GitRepositoryList'
@@ -24,12 +24,15 @@ import { RouteList }          from './pages/networking/RouteList'
 import { DomainList }         from './pages/networking/DomainList'
 
 // Supply chain
-import { SupplyChainList }    from './pages/supplychain/SupplyChainList'
-import { GitHubWebhookList }  from './pages/supplychain/GitHubWebhookList'
+// import { SupplyChainList }    from './pages/supplychain/SupplyChainList'
+// import { GitHubWebhookList }  from './pages/supplychain/GitHubWebhookList'
 
 // Logs
 import { LogsPage }           from './pages/logs/LogsPage'
 import { LogsListPage }       from './pages/logs/LogsListPage'
+
+// CLI
+import { CLIPage }            from './pages/CLIPage'
 
 // Create forms — existing
 import { EnvironmentForm }    from './forms/EnvironmentForm'
@@ -43,8 +46,8 @@ import { RouteForm }          from './forms/RouteForm'
 import { DomainForm }         from './forms/DomainForm'
 
 // Create forms — new
-import { SupplyChainForm }    from './forms/SupplyChainForm'
-import { GitHubWebhookForm }  from './forms/GitHubWebhookForm'
+// import { SupplyChainForm }    from './forms/SupplyChainForm'
+// import { GitHubWebhookForm }  from './forms/GitHubWebhookForm'
 
 // Patch forms
 import { BuildPatch }         from './forms/BuildPatch'
@@ -77,8 +80,8 @@ export default function App() {
           <Route path="/domains/new"        element={<DomainForm />} />
 
           {/* Dependencies */}
-          <Route path="/dependencies"         element={<DependenciesList />} />
-          <Route path="/dependencies/:name"   element={<DependenciesList />} />
+          {/* <Route path="/dependencies"         element={<DependenciesList />} />
+          <Route path="/dependencies/:name"   element={<DependenciesList />} /> */}
 
           {/* Sources */}
           <Route path="/gitrepositories"      element={<GitRepositoryList />} />
@@ -88,14 +91,17 @@ export default function App() {
           <Route path="/githubevents"         element={<GitHubEventList />} />
           <Route path="/githubevents/new"     element={<GitHubEventForm />} />
           {/* Supply chain */}
-          <Route path="/supplychains"         element={<SupplyChainList />} />
+          {/* <Route path="/supplychains"         element={<SupplyChainList />} />
           <Route path="/supplychains/new"     element={<SupplyChainForm />} />
           <Route path="/githubwebhooks"       element={<GitHubWebhookList />} />
-          <Route path="/githubwebhooks/new"   element={<GitHubWebhookForm />} />
+          <Route path="/githubwebhooks/new"   element={<GitHubWebhookForm />} /> */}
 
           {/* Logs */}
           <Route path="/logs"             element={<LogsListPage />} />
           <Route path="/logs/:namespace/:pod" element={<LogsPage />} />
+
+          {/* CLI */}
+          <Route path="/cli" element={<CLIPage />} />
         </Routes>
       </Layout>
     </BrowserRouter>

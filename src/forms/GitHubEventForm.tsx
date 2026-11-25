@@ -21,14 +21,12 @@ export const GitHubEventForm: FC = () => {
   const allEvents = [primaryEvt, ...extraEvents.filter(e => e !== primaryEvt)]
 
   const spec = {
-    contract: {
-      repository: repoRef,
-      eventType: primaryEvt,
-      ref: branches.length ? `refs/heads/${branches[0]}` : 'refs/heads/main',
-      ...(allEvents.length > 1 ? { events: allEvents } : {}),
-      ...(branches.length ? { filters: { branches } } : {}),
-      ...(webhookSecret ? { webhook: { secretRef: { name: webhookSecret, key: 'secret' } } } : {}),
-    },
+    repository: repoRef,
+    eventType: primaryEvt,
+    ref: branches.length ? `refs/heads/${branches[0]}` : 'refs/heads/main',
+    ...(allEvents.length > 1 ? { events: allEvents } : {}),
+    ...(branches.length ? { filters: { branches } } : {}),
+    ...(webhookSecret ? { webhook: { secretRef: { name: webhookSecret, key: 'secret' } } } : {}),
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

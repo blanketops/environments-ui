@@ -21,14 +21,12 @@ export const PackageForm: FC = () => {
   const [saving,       setSaving]      = useState(false)
 
   const spec = {
-    contract: {
-      strategy,
-      version,
-      stateRepo: { url: stateRepo, strategy, path: statePath },
-      packageKappDiff: diffEnabled,
-      diff: { enabled: diffEnabled, timeout: Number(diffTimeout) },
-      applyTimeout: Number(applyTimeout),
-    },
+    strategy,
+    version,
+    stateRepo: { url: stateRepo, strategy, path: statePath },
+    packageKappDiff: diffEnabled,
+    diff: { enabled: diffEnabled, timeout: Number(diffTimeout) },
+    applyTimeout: Number(applyTimeout),
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

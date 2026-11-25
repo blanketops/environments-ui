@@ -23,7 +23,6 @@ const SINGULAR_TO_ROUTE: Record<string, string> = {
   GitHubWebhook: 'githubwebhooks',
   Route:         'routes',
   Domain:        'domains',
-  SupplyChain:   'supplychains',
 }
 
 const routeKeyFor = (kind: string) =>
@@ -110,7 +109,7 @@ export const DetailDrawer: FC<Props> = ({ item, onDelete, onPatched, onSelectIte
   const fetchRelatedItems = async () => {
     if (relatedFetched) return
     const envName = v.labels?.['environments.blanketops.dev/name'] ?? v.name
-    const kinds = ['builds', 'deployments', 'packages', 'serviceunits', 'gitrepositories', 'githubevents', 'routes', 'domains', 'buildruns']
+    const kinds = ['builds', 'deployments', 'packages', 'serviceunits', 'gitrepositories', 'githubevents', 'routes', 'domains']
     const results: Map<string, CRStatus[]> = new Map()
 
     await Promise.all(
@@ -123,7 +122,7 @@ export const DetailDrawer: FC<Props> = ({ item, onDelete, onPatched, onSelectIte
           )
           if (items.length > 0) results.set(kind, items)
         } catch {
-          // Kind may not be installed (e.g. buildruns) — skip gracefully
+          // Kind may not be installed — skip gracefully
         }
       })
     )

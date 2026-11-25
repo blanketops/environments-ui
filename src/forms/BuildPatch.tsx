@@ -45,10 +45,9 @@ export const BuildPatch: FC = () => {
   if (!cr) return null
 
   // Pull initial values out of the CR spec
-  // spec.contract mirrors what BuildForm produces
-  const contract = (cr.spec as Record<string, unknown>)?.contract as Record<string, unknown> ?? {}
-  const source   = contract.source   as Record<string, unknown> ?? {}
-  const stratObj = contract.strategy as Record<string, unknown> ?? {}
+  const spec = cr.spec as Record<string, unknown> ?? {}
+  const source   = spec.source   as Record<string, unknown> ?? {}
+  const stratObj = spec.strategy as Record<string, unknown> ?? {}
 
   return (
     <BuildForm
@@ -57,12 +56,12 @@ export const BuildPatch: FC = () => {
       initialNamespace={cr.namespace}
       initialValues={{
         strategy:    String(stratObj.name   ?? 'kaniko'),
-        image:       String(contract.image  ?? ''),
+        image:       String(spec.image  ?? ''),
         sourceUrl:   String(source.url      ?? ''),
         revision:    String(source.revision ?? 'main'),
         cloneSecret: String(source.cloneSecret ?? ''),
-        buildArgs:   Array.isArray(contract.buildArgs)
-                       ? (contract.buildArgs as string[])
+        buildArgs:   Array.isArray(spec.buildArgs)
+                       ? (spec.buildArgs as string[])
                        : [],
       }}
     />

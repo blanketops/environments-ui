@@ -3,7 +3,24 @@ export default {
   darkMode: 'class',
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        brand: {
+          red: '#ff5758',
+          redHover: '#e84d4e',
+          redBg: '#fff0f0',
+        },
+        zinc: {
+          750: '#2a2a32',
+          850: '#1a1a20',
+          950: '#09090c',
+        },
+      },
+      fontFamily: {
+        mono: ['"IBM Plex Mono"', 'monospace'],
+        sans: ['Syne', 'sans-serif'],
+      },
+    },
   },
   plugins: [],
 }

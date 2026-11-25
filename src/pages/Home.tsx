@@ -1,7 +1,14 @@
-import { type FC } from 'react'
+import { type FC, useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useList } from '../hooks/useResource'
 import type { CRStatus } from '../types'
+
+interface ClusterInfo {
+  operatorVersion: string
+  clusterName: string
+  namespace: string
+  connected: boolean
+}
 
 // ── Resource type overview ─────────────────────────────────────────────────
 
@@ -30,13 +37,6 @@ const RESOURCE_GROUPS = [
       { icon: 'ti-webhook',    kind: 'GitHubEvent',   to: '/githubevents/new',    desc: 'Webhook payload — push, pull_request, release' },
     ],
   },
-  {
-    title: 'SUPPLY CHAIN',
-    items: [
-      { icon: 'ti-shield-check',   kind: 'SupplyChain',   to: '/supplychains/new',   desc: 'Tekton pipeline — sign, attest, SonarQube, Grafeas' },
-      { icon: 'ti-plug-connected', kind: 'GitHubWebhook', to: '/githubwebhooks/new', desc: 'GitHub webhook registration for supply chain' },
-    ],
-  },
 ]
 
 // ── Environment summary ────────────────────────────────────────────────────
@@ -44,8 +44,7 @@ const RESOURCE_GROUPS = [
 function EnvRow({ env }: { env: CRStatus }) {
   const phase   = env.phase.toLowerCase()
   const spec    = (env.spec ?? {}) as Record<string, unknown>
-  const contract = (spec.contract ?? {}) as Record<string, unknown>
-  const envType  = String(spec.envType ?? contract.envType ?? '—')
+  const envType  = String(spec.environmentType ?? spec.envType ?? '—')
   return (
     <Link to="/environments" className="env-summary-row">
       <span className={`dot dot-${phase}`} />
@@ -99,42 +98,62 @@ function EnvironmentSection() {
 
 // ── Home ───────────────────────────────────────────────────────────────────
 
-export const Home: FC = () => (
-  <div className="home-page">
+export const Home: FC = () => {
+  const [clusterInfo, setClusterInfo] = useState<ClusterInfo | null>(null)
 
-    <div className="home-hero">
-      <div className="home-wordmark">
-        blanket<span className="home-ops">ops</span>
-        <span className="home-product">environments</span>
-      </div>
-      <p className="home-tagline">
-        platform-level multi-tenant environment management for cloud-native applications
-      </p>
-      <div className="home-meta">
-        <span className="tag tag-blue">operator v0.1.0</span>
-        <span className="tag">cluster: kind-dev</span>
-        <span className="tag">ns: blanketops-system</span>
-      </div>
-    </div>
+  useEffect(() => {
+    fetch('/api/v1/cluster/info')
+      .then(res => res.json())
+      .then(data => setClusterInfo(data))
+      .catch(() => setClusterInfo({
+        operatorVersion: 'unknown',
+        clusterName: 'unknown',
+        namespace: 'blanketops-environments',
+        connected: false,
+      }))
+  }, [])
 
-    <EnvironmentSection />
+  return (
+    <div className="home-page">
 
-    {/* <DependenciesSection /> */}
-
-    {RESOURCE_GROUPS.map(group => (
-      <div key={group.title} className="home-resource-group">
-        <span className="section-title">{group.title}</span>
-        <div className="rtc-grid">
-          {group.items.map(r => (
-            <Link key={r.kind} to={r.to} className="rtc">
-              <i className={`ti ${r.icon} rtc-icon`} />
-              <div className="rtc-kind">{r.kind}</div>
-              <div className="rtc-desc">{r.desc}</div>
-            </Link>
-          ))}
+      <div className="home-hero">
+        <div className="home-wordmark">
+          blanket<span className="home-ops">ops</span>
+          <span className="home-product">environments</span>
+        </div>
+        <p className="home-tagline">
+          platform-level multi-tenant environment management for cloud-native applications
+        </p>
+        <div className="home-meta">
+          {clusterInfo && (
+            <>
+              <span className="tag tag-blue">operator v{clusterInfo.operatorVersion}</span>
+              <span className="tag">cluster: {clusterInfo.clusterName}</span>
+              <span className="tag">ns: {clusterInfo.namespace}</span>
+            </>
+          )}
         </div>
       </div>
-    ))}
 
-  </div>
-)
+      <EnvironmentSection />
+
+      {/* <DependenciesSection /> */}
+
+      {RESOURCE_GROUPS.map(group => (
+        <div key={group.title} className="home-resource-group">
+          <span className="section-title">{group.title}</span>
+          <div className="rtc-grid">
+            {group.items.map(r => (
+              <Link key={r.kind} to={r.to} className="rtc">
+                <i className={`ti ${r.icon} rtc-icon`} />
+                <div className="rtc-kind">{r.kind}</div>
+                <div className="rtc-desc">{r.desc}</div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ))}
+
+    </div>
+  )
+}

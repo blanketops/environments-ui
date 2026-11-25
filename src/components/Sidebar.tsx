@@ -7,8 +7,8 @@ interface Section { title: string; items: NavItem[] }
 const NAV: Section[] = [
   {
     title: 'PLATFORM', items: [
-      { label: 'Home',      to: '/',          icon: 'fa-home' },
-      { label: 'Dashboard', to: '/dashboard', icon: 'fa-tachometer' },
+      { label: 'Home',      to: '/',          icon: 'ti-home' },
+      { label: 'Dashboard', to: '/dashboard', icon: 'ti-layout-dashboard' },
     ],
   },
   {
@@ -38,14 +38,8 @@ const NAV: Section[] = [
     ],
   },
   {
-    title: 'SUPPLY CHAIN', items: [
-      { label: 'Supply Chain',   to: '/supplychains',   icon: 'ti-shield-check' },
-      { label: 'GitHub Webhook', to: '/githubwebhooks', icon: 'ti-plug-connected' },
-    ],
-  },
-  {
-    title: 'DEPENDENCIES', items: [
-      { label: 'Dependencies', to: '/dependencies', icon: 'ti-database' },
+    title: 'CLI', items: [
+      { label: 'CLI Management', to: '/cli', icon: 'ti-terminal' },
     ],
   },
 ]

@@ -20,16 +20,14 @@ export const ServiceUnitForm: FC = () => {
   const [saving,   setSaving]  = useState(false)
 
   const spec = {
-    contract: {
-      type,
-      ...(type === 'build' && buildRef ? { buildRef: { name: buildRef } } : {}),
-      image: imageRef,
-      containerPort: Number(port),
-      size: 1,
-      ...(envVars.length ? {
-        env: envVars.map(e => { const p = e.split('='); return { name: p[0], value: p.slice(1).join('=') } }),
-      } : {}),
-    },
+    type,
+    ...(type === 'build' && buildRef ? { buildRef: { name: buildRef } } : {}),
+    image: imageRef,
+    containerPort: Number(port),
+    size: 1,
+    ...(envVars.length ? {
+      env: envVars.map(e => { const p = e.split('='); return { name: p[0], value: p.slice(1).join('=') } }),
+    } : {}),
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

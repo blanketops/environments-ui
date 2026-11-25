@@ -2,6 +2,7 @@ import { useEffect, useState, type FC, type ReactNode, createContext, useContext
 import { useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { ConnectivityStatus } from './ConnectivityStatus'
+import { ModeToggle, SkinMenu } from './SkinControls'
 import { useConnectivity } from '../hooks/useConnectivity'
 
 const ROUTE_META: Record<string, { title: string; badge?: string }> = {
@@ -16,9 +17,8 @@ const ROUTE_META: Record<string, { title: string; badge?: string }> = {
   '/githubevents':    { title: 'GitHub Events',  badge: 'GitHubEvent'   },
   '/routes':          { title: 'Routes',         badge: 'Route'         },
   '/domains':         { title: 'Domains',        badge: 'Domain'        },
-  '/supplychains':    { title: 'Supply Chains',  badge: 'SupplyChain'   },
-  '/githubwebhooks':  { title: 'GitHub Webhooks',badge: 'GitHubWebhook' },
   '/logs':            { title: 'Logs',          badge: 'Logs'         },
+  '/cli':             { title: 'CLI Management', badge: 'CLI'         },
 }
 
 const SIDEBAR_KEY = 'blanketops.sidebar'
@@ -27,6 +27,7 @@ function loadCollapsed(): boolean {
   try { return window.localStorage.getItem(SIDEBAR_KEY) === 'collapsed' } catch { return false }
 }
 
+// ── Toast system ────────────────────────────────────────────────────────
 interface Toast {
   id: number
   message: string
@@ -68,28 +69,40 @@ export const Layout: FC<{ children: ReactNode }> = ({ children }) => {
       <div className="app">
         <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
         <div className="main">
-          <nav className="navbar navbar-expand navbar-dark bg-dark fixed-top">
-            <div className="container-fluid">
-              <div className="d-flex align-items-center">
-                <button type="button" className="btn btn-link btn-sm text-white order-1 order-sm-0" onClick={() => setCollapsed(c => !c)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-pressed={collapsed}>
-                  <i className="fa fa-bars" />
-                </button>
-                <h1 className="page-title ml-2">{meta.title}</h1>
-                {meta.badge && <span className="badge badge-info ml-2">{meta.badge}</span>}
-              </div>
-              <div className="ml-auto">
-                <span className={`text-${connected ? 'success' : 'danger'}`}>
-                  <span className={`fa fa-circle ${connected ? 'text-success' : 'text-danger'} mr-1`} />
-                  {connected ? 'watching' : 'reconnecting…'}
-                </span>
-              </div>
+
+          <header className="topbar">
+            <div className="topbar-left">
+              <button
+                type="button"
+                className="topbar-btn topbar-btn--square"
+                onClick={() => setCollapsed(c => !c)}
+                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                aria-pressed={collapsed}
+              >
+                <i className={`ti ${collapsed ? 'ti-layout-sidebar-left-expand' : 'ti-layout-sidebar-left-collapse'}`} />
+              </button>
+              <span className="topbar-title">{meta.title}</span>
+              {meta.badge && <span className="kind-badge">{meta.badge}</span>}
             </div>
-          </nav>
+            <div className="topbar-right">
+              <span className={`watch${connected ? ' watch--live' : ''}`}>
+                <span className={`watching-dot${connected ? ' watching-dot--live' : ''}`} />
+                <span className="watching-label">{connected ? 'watching' : 'reconnecting…'}</span>
+              </span>
+              <SkinMenu />
+              <ModeToggle />
+            </div>
+          </header>
+
+          {/* Indeterminate bar — sweeps when polling / reconnecting */}
           <div className="tbar">
             <div className={`tbar-fill${connected ? ' tbar-fill--active' : ' tbar-fill--warn'}`} />
           </div>
+
           <ConnectivityStatus />
           <div className="content">{children}</div>
+
+          {/* Toasts */}
           <div className="toast-container">
             {toasts.map(t => (
               <div key={t.id} className={`toast toast--${t.type}`}>

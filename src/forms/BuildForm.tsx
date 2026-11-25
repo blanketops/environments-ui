@@ -45,16 +45,14 @@ export const BuildForm: FC<BuildFormProps> = ({
   const [saving,      setSaving]     = useState(false)
 
   const spec = {
-    contract: {
-      image,
-      strategy: { kind: 'ClusterBuildStrategy', name: strategy },
-      source: {
-        url: sourceUrl,
-        revision,
-        ...(cloneSecret ? { cloneSecret } : {}),
-      },
-      ...(buildArgs.length ? { buildArgs } : {}),
+    image,
+    strategy: { kind: 'ClusterBuildStrategy', name: strategy },
+    source: {
+      url: sourceUrl,
+      revision,
+      ...(cloneSecret ? { cloneSecret } : {}),
     },
+    ...(buildArgs.length ? { buildArgs } : {}),
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

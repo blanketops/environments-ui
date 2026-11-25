@@ -18,16 +18,14 @@ export const GitRepositoryForm: FC = () => {
   const [saving,     setSaving]    = useState(false)
 
   const spec = {
-    contract: {
-      provider: 'github',
-      repository: {
-        url,
-        ref: { branch },
-        ...(secretRef ? { cloneSecret: secretRef } : {}),
-      },
-      ...(hookUrl ? { hookUrl } : {}),
-      webhooks: [{ events: ['push', 'pull_request'] }],
+    provider: 'github',
+    repository: {
+      url,
+      ref: { branch },
+      ...(secretRef ? { cloneSecret: secretRef } : {}),
     },
+    ...(hookUrl ? { hookUrl } : {}),
+    webhooks: [{ events: ['push', 'pull_request'] }],
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

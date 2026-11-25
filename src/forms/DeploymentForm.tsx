@@ -21,13 +21,11 @@ export const DeploymentForm: FC = () => {
   const [saving,        setSaving]       = useState(false)
 
   const spec = {
-    contract: {
-      serviceUnits,
-      strategy,
-      manifestsRepo: { url: manifestsRepo, strategy: 'kustomization', path: manifestsPath },
-      branch,
-      imageAutomation: imageAuto,
-    },
+    serviceUnits,
+    strategy,
+    manifestsRepo: { url: manifestsRepo, strategy: 'kustomization', path: manifestsPath },
+    branch,
+    imageAutomation: imageAuto,
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

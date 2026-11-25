@@ -74,7 +74,7 @@ export function makeEnvironment(overrides: Partial<CRStatus> = {}): CRStatus {
   return baseCR('environments', {
     name: 'env-sample',
     spec: {
-      contract: { secretStore: { provider: 'aws' } },
+      secretStore: { provider: 'aws' },
       environmentClass: 'standard',
     },
     ...overrides,

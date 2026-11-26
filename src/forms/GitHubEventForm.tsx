@@ -70,7 +70,7 @@ export const GitHubEventForm: FC = () => {
 
           <div className="form-sec"><span className="form-sec-title">SOURCE</span><div className="form-sec-line" /></div>
           <Field label="repository" required hint="owner/repo format">
-            <Input value={repoRef} onChange={e => setRepoRef(e.target.value)} placeholder="ntlaletsi70/blanketops-app" required />
+            <Input value={repoRef} onChange={e => setRepoRef(e.target.value)} placeholder="blanketops/blanketops-app" required />
           </Field>
           <Field label="branch filters" hint="Leave empty to trigger on all branches">
             <TagInput value={branches} onChange={setBranches} placeholder="main" />

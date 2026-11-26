@@ -31,7 +31,7 @@ concurrency:
 jobs:
   open:
     name: open pull request and tracking issue
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Generate Developer App token
         id: app

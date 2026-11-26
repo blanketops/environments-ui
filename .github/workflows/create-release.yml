@@ -32,7 +32,7 @@ concurrency:
 jobs:
   create:
     name: releaser cut
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: blanketops/environments-bots/.github/actions/releaser@v0.0.3
         with:

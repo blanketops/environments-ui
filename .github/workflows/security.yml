@@ -47,7 +47,7 @@ jobs:
   # ───────────────────────────────────────────────────────────────────────────
   npm-audit:
     name: npm audit
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     if: >
       github.event_name == 'pull_request' ||
@@ -101,7 +101,7 @@ jobs:
   # ───────────────────────────────────────────────────────────────────────────
   trivy-image:
     name: Trivy Image Scan
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     if: github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/v')
     steps:

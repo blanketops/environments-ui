@@ -46,7 +46,7 @@ jobs:
   # ───────────────────────────────────────────────────────────────────────────
   changes:
     name: Detect Changes
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 5
     outputs:
       code: ${{ steps.detect.outputs.code }}
@@ -116,7 +116,7 @@ jobs:
   # ───────────────────────────────────────────────────────────────────────────
   ui:
     name: UI — Typecheck, Test, Build
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
     timeout-minutes: 20

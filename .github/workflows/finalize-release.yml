@@ -28,7 +28,7 @@ permissions:
   contents: write
 jobs:
   finalize:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 15
     env:
       VERSION: ${{ github.event.inputs.version }}
